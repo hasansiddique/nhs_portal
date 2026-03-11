@@ -1,0 +1,12 @@
+{
+  "name": "api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "serve": "ts-node --project tsconfig.app.json src/main.ts",
+    "build": "tsc --project tsconfig.app.json",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
+  }
+}
