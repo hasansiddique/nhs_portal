@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 
 import { SonnerToaster } from '@your-props/client/ui';
 import {
@@ -15,6 +15,8 @@ import { ThemeLayout, DashboardRightSidebar } from '@your-props/client/web';
 
 export const RootLayout = () => {
   const userId = getUserId();
+  const { pathname } = useLocation();
+  const isHomePage = pathname === '/' || pathname === '/home';
 
   const { addMessageToChat, fetchChats, updateChatsCount } = useInboxActions();
   const { fetchCartItems } = useCartActions();
@@ -31,12 +33,12 @@ export const RootLayout = () => {
   });
 
   useEffect(() => {
-    if (userId) {
+    if (userId && !isHomePage) {
       fetchChats();
       fetchCartItems();
       fetchNotifications();
     }
-  }, [userId]);
+  }, [userId, isHomePage]);
 
   return (
     <>

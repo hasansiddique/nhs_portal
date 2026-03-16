@@ -46,7 +46,7 @@ const widgetSidebarData = [
   },
   {
     id: 1,
-    title: 'Props',
+    title: 'Appointments',
     content: [
       // {
       //   icon: YourPropsIcon,
@@ -55,22 +55,22 @@ const widgetSidebarData = [
       // },
       {
         icon: BulkUploadIcon,
-        field: 'Bulk Upload',
-        key: 'bulk-upload',
+        field: 'Booked',
+        key: 'booked',
       },
       {
         icon: AddNewPropIcon,
-        field: 'Add Item',
+        field: 'Add',
         key: 'add-item',
       },
-      {
+      /*{
         icon: SavedSearchesIcon,
         field: 'Saved Searches',
         key: 'saved-searches',
-      },
+      },*/
     ],
   },
-  {
+ /* {
     id: 2,
     title: 'Trading',
     content: [
@@ -131,7 +131,7 @@ const widgetSidebarData = [
       //   key: 'messages',
       // },
     ],
-  },
+  },*/
   {
     id: 4,
     title: 'Settings',

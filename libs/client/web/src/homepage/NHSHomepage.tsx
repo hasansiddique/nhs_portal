@@ -43,7 +43,8 @@ export const NHSHomepage = () => {
               <p className="sub-heading text-white text-[20px] md:text-[22px] leading-[1.4] opacity-90 mb-10">
                 Book, view and manage your GP and clinic appointments online with YourNHS.
               </p>
-              <div className="flex flex-wrap gap-4 pt-2">
+
+              <div className="flex flex-wrap gap-4 pt-20">
                 <Link
                   to="/appointments/book"
                   className="sc-button fl-button pri-3 inline-flex items-center justify-center h-[56px] px-[32px] rounded-[10px] bg-[#EF6A3B] border border-[#EF6A3B] text-white text-[18px] font-semibold hover:opacity-90 transition"
