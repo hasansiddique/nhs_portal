@@ -1,0 +1,35 @@
+{
+  "name": "api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/api/src",
+  "projectType": "application",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --project apps/api/tsconfig.app.json"
+      },
+      "outputs": ["{workspaceRoot}/dist/apps/api"]
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "ts-node --project apps/api/tsconfig.app.json apps/api/src/main.ts"
+      },
+      "configurations": {}
+    },
+    "prisma-generate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma generate --schema=apps/api/prisma/schema.prisma"
+      }
+    },
+    "prisma-migrate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate dev --schema=apps/api/prisma/schema.prisma"
+      }
+    }
+  }
+}

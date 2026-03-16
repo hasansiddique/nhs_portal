@@ -1,0 +1,28 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@your-props/client/icons": ["libs/client/icons/src/index.ts"],
+      "@your-props/client/mobile": ["libs/client/mobile/src/index.ts"],
+      "@your-props/client/ui": ["libs/client/ui/src/index.ts"],
+      "@your-props/client/utils": ["libs/client/utils/src/index.ts"],
+      "@your-props/client/web": ["libs/client/web/src/index.ts"],
+      "@nhs-portal/api": ["apps/api/src/routers/index.ts"],
+      "@nhs-portal/client-api": ["libs/client/api/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}
