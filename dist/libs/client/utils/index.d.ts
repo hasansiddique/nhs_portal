@@ -19,3 +19,4 @@ export * from './store/use-cart-store';
 export * from './store/use-dialog-store';
 export * from './store/use-sidebar-store';
 export * from './store/use-prop-store';
+export * from './store/use-location-store';

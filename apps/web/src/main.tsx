@@ -34,6 +34,10 @@ const router = createBrowserRouter(
           element: <Outlet />,
           children: [
             { index: true, lazy: () => import('./pages/home').then((m) => ({ Component: m.default })) },
+            {
+              path: 'invoice-generator',
+              lazy: () => import('./pages/invoice-generator').then((m) => ({ Component: m.default })),
+            },
           ],
         },
         {

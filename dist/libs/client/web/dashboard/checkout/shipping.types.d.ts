@@ -13,18 +13,18 @@ export declare const shippingFormSchema: z.ZodObject<{
     address: string;
     state: string;
     country: string;
+    phone: string;
     firstName: string;
     lastName: string;
-    phone: string;
     zipcode: string;
     city?: string | undefined;
 }, {
     address: string;
     state: string;
     country: string;
+    phone: string;
     firstName: string;
     lastName: string;
-    phone: string;
     zipcode: string;
     city?: string | undefined;
 }>;

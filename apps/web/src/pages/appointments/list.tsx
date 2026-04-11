@@ -25,7 +25,7 @@ export default function AppointmentsList() {
           My appointments
         </h1>
         <Button asChild variant="default" size="sm">
-          <Link to="/appointments/book">Book new</Link>
+          <Link to="/appointments/book">Add appointment</Link>
         </Button>
       </div>
       {items.length === 0 ? (
@@ -43,12 +43,12 @@ export default function AppointmentsList() {
             className="mt-2 inline-block underline"
             style={{ color: 'var(--primary-color3)' }}
           >
-            Book an appointment
+            Add an appointment
           </Link>
         </div>
       ) : (
         <ul className="space-y-3">
-          {items.map((apt) => (
+          {items.map((apt: any) => (
             <li
               key={apt.id}
               className="flex flex-wrap items-center justify-between rounded-[10px] border p-4"

@@ -1,6 +1,7 @@
 import { createTRPCReact } from '@trpc/react-query';
 import type { AppRouter } from '@nhs-portal/api';
 import { httpBatchLink } from '@trpc/client';
+import Cookies from 'js-cookie';
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -16,7 +17,8 @@ export const trpcClient = trpc.createClient({
     httpBatchLink({
       url: `${getBaseUrl()}/trpc`,
       headers() {
-        return {};
+        const token = typeof window !== 'undefined' ? Cookies.get('token') : undefined;
+        return token ? { authorization: token } : {};
       },
     }),
   ],

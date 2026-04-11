@@ -9,13 +9,28 @@ exports.authVerifyResetToken = authVerifyResetToken;
 exports.authResetPassword = authResetPassword;
 exports.authRefreshToken = authRefreshToken;
 const tslib_1 = require("tslib");
-const bcrypt_1 = tslib_1.__importDefault(require("bcrypt"));
+const bcryptjs_1 = tslib_1.__importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = tslib_1.__importDefault(require("jsonwebtoken"));
 const crypto_1 = tslib_1.__importDefault(require("crypto"));
 const prisma_1 = require("../lib/prisma");
 const JWT_SECRET = process.env.JWT_SECRET || 'nhs-portal-secret-change-in-production';
 const SALT_ROUNDS = 10;
 const RESET_TOKEN_EXPIRY_HOURS = 24;
+function generateDemoNhsNumber() {
+    return tslib_1.__awaiter(this, void 0, void 0, function* () {
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+            const candidate = String(Date.now() + Math.floor(Math.random() * 1000)).slice(-10);
+            const existing = yield prisma_1.prisma.patient.findUnique({
+                where: { nhsNumber: candidate },
+                select: { id: true },
+            });
+            if (!existing) {
+                return candidate;
+            }
+        }
+        return String(Date.now()).padStart(10, '0').slice(-10);
+    });
+}
 function sendError(res, status, messages) {
     res.status(status).json({ messages: messages });
 }
@@ -32,9 +47,9 @@ function authLogin(req, res) {
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
         var _a, _b;
         try {
-            const body = req.body;
-            const username = ((_b = (_a = body.username) !== null && _a !== void 0 ? _a : body.email) !== null && _b !== void 0 ? _b : '').trim();
-            const password = body.password;
+            const body = (req.body || {});
+            const username = String((_b = (_a = body.username) !== null && _a !== void 0 ? _a : body.email) !== null && _b !== void 0 ? _b : '').trim();
+            const password = body.password != null ? String(body.password) : '';
             if (!username || !password) {
                 sendError(res, 400, { error: 'Username and password are required' });
                 return;
@@ -51,7 +66,7 @@ function authLogin(req, res) {
                 sendError(res, 401, { error: 'Invalid email or password' });
                 return;
             }
-            const valid = yield bcrypt_1.default.compare(password, user.passwordHash);
+            const valid = yield bcryptjs_1.default.compare(password, user.passwordHash);
             if (!valid) {
                 sendError(res, 401, { error: 'Invalid email or password' });
                 return;
@@ -70,11 +85,12 @@ function authLogin(req, res) {
 }
 function authSignup(req, res) {
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c;
         try {
-            const body = req.body;
-            const email = (body.email || '').trim().toLowerCase();
-            const username = (body.username || body.email || '').trim();
-            const password = body.password;
+            const body = (req.body || {});
+            const email = String((_a = body.email) !== null && _a !== void 0 ? _a : '').trim().toLowerCase();
+            const username = String((_c = (_b = body.username) !== null && _b !== void 0 ? _b : body.email) !== null && _c !== void 0 ? _c : '').trim();
+            const password = body.password != null ? String(body.password) : '';
             if (!email || !password) {
                 sendError(res, 400, { error: 'Email and password are required' });
                 return;
@@ -84,13 +100,20 @@ function authSignup(req, res) {
                 sendError(res, 400, { error: 'Email is already registered' });
                 return;
             }
-            const passwordHash = yield bcrypt_1.default.hash(password, SALT_ROUNDS);
-            yield prisma_1.prisma.user.create({
+            const passwordHash = yield bcryptjs_1.default.hash(password, SALT_ROUNDS);
+            const user = yield prisma_1.prisma.user.create({
                 data: {
                     email,
                     passwordHash,
                     name: username || email,
                     role: 'PATIENT',
+                },
+            });
+            yield prisma_1.prisma.patient.create({
+                data: {
+                    userId: user.id,
+                    nhsNumber: yield generateDemoNhsNumber(),
+                    dateOfBirth: new Date('1990-01-01T00:00:00.000Z'),
                 },
             });
             res.json({ message: 'Account created successfully. You can sign in now.' });
@@ -101,41 +124,57 @@ function authSignup(req, res) {
         }
     });
 }
+/**
+ * Check if email is already used by an existing user (User table).
+ * Returns status: true if available, status: false if already taken or invalid.
+ * Form should show error when status is false and allow create account when status is true.
+ */
 function checkEmail(req, res) {
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
+        var _a;
         try {
-            const body = req.body;
-            const email = (body.email || '').trim().toLowerCase();
+            const body = (req.body || {});
+            const email = String((_a = body.email) !== null && _a !== void 0 ? _a : '').trim().toLowerCase();
             if (!email) {
-                res.json({ status: false, message: 'Email is required' });
-                return;
+                return res.status(200).json({ status: false, message: 'Email is required' });
             }
             const existing = yield prisma_1.prisma.user.findUnique({ where: { email } });
-            res.json({ status: !existing, message: existing ? 'Email is already taken' : 'Email is available' });
+            return res.status(200).json({
+                status: !existing,
+                message: existing ? 'Email is already taken' : 'Email is available',
+            });
         }
         catch (e) {
             console.error('checkEmail', e);
-            res.status(500).json({ status: false, message: 'Validation failed' });
+            return res.status(500).json({ status: false, message: 'Validation failed' });
         }
     });
 }
+/**
+ * Check if username (User.name) is already used by an existing user (User table).
+ * Returns status: true if available, status: false if already taken or invalid.
+ * Form should show error when status is false and allow create account when status is true.
+ */
 function checkUsername(req, res) {
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
+        var _a;
         try {
-            const body = req.body;
-            const username = (body.username || '').trim();
+            const body = (req.body || {});
+            const username = String((_a = body.username) !== null && _a !== void 0 ? _a : '').trim();
             if (!username) {
-                res.json({ status: false, message: 'Username is required' });
-                return;
+                return res.status(200).json({ status: false, message: 'Username is required' });
             }
             const existing = yield prisma_1.prisma.user.findFirst({
                 where: { name: username },
             });
-            res.json({ status: !existing, message: existing ? 'Username is already taken' : 'Username is available' });
+            return res.status(200).json({
+                status: !existing,
+                message: existing ? 'Username is already taken' : 'Username is available',
+            });
         }
         catch (e) {
             console.error('checkUsername', e);
-            res.status(500).json({ status: false, message: 'Validation failed' });
+            return res.status(500).json({ status: false, message: 'Validation failed' });
         }
     });
 }
@@ -213,7 +252,7 @@ function authResetPassword(req, res) {
                 sendError(res, 400, { error: 'Invalid or expired reset link' });
                 return;
             }
-            const passwordHash = yield bcrypt_1.default.hash(password, SALT_ROUNDS);
+            const passwordHash = yield bcryptjs_1.default.hash(password, SALT_ROUNDS);
             yield prisma_1.prisma.user.update({
                 where: { id: user.id },
                 data: {

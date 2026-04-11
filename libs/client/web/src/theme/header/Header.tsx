@@ -72,7 +72,7 @@ export const Header = () => {
 
   useEffect(() => {
     if (isLoggedIn && !isInitialized) {
-      fetchNotifications();
+      // fetchNotifications();
     }
   }, [isLoggedIn]);
 
@@ -333,7 +333,7 @@ export const Header = () => {
                           </button>
                         )}
 
-                        <div
+                        {/*<div
                           onClick={() =>
                             !isLoggedIn
                               ? toggleDialogVisibility(true, <SignIn />)
@@ -369,7 +369,7 @@ export const Header = () => {
                           >
                             <SvgCart />
                           </div>
-                        </div>
+                        </div>*/}
                       </div>
                     </div>
                   )}
@@ -542,7 +542,7 @@ export const Header = () => {
                         </button>
                       )}
 
-                      <div
+                      {/*<div
                         onClick={() =>
                           !isLoggedIn
                             ? toggleDialogVisibility(true, <SignIn />)
@@ -572,7 +572,7 @@ export const Header = () => {
                         <div>
                           <SvgCart />
                         </div>
-                      </div>
+                      </div>*/}
                     </div>
                   </div>
                 </div>

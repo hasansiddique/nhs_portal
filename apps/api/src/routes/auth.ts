@@ -8,6 +8,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'nhs-portal-secret-change-in-produc
 const SALT_ROUNDS = 10;
 const RESET_TOKEN_EXPIRY_HOURS = 24;
 
+async function generateDemoNhsNumber() {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const candidate = String(Date.now() + Math.floor(Math.random() * 1000)).slice(-10);
+    const existing = await prisma.patient.findUnique({
+      where: { nhsNumber: candidate },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return candidate;
+    }
+  }
+
+  return String(Date.now()).padStart(10, '0').slice(-10);
+}
+
 function sendError(res: Response, status: number, messages: Record<string, string> | string[]) {
   res.status(status).json({ messages: messages });
 }
@@ -89,12 +105,20 @@ export async function authSignup(req: Request, res: Response) {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         email,
         passwordHash,
         name: username || email,
         role: 'PATIENT',
+      },
+    });
+
+    await prisma.patient.create({
+      data: {
+        userId: user.id,
+        nhsNumber: await generateDemoNhsNumber(),
+        dateOfBirth: new Date('1990-01-01T00:00:00.000Z'),
       },
     });
 

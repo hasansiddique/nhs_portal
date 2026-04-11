@@ -26,5 +26,7 @@ export * from './components/pass-strength';
 export * from './components/circular-chart';
 export * from './components/product-views-chart';
 export * from './skeletons/dashboard';
+export * from './components/data-table';
+export * from './components/data-table-pagination';
 export * from './skeletons/profile';
 export * from './skeletons/cards';
