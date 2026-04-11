@@ -52,6 +52,41 @@ const practitionerSeeds: PractitionerSeed[] = [
     gmcNumber: '6912345',
     speciality: 'Mental Health',
   },
+  {
+    email: 'alex.bain@nhs-demo.local',
+    name: 'Dr Alex Bain',
+    title: 'Dr',
+    gmcNumber: '7021144',
+    speciality: 'General Practice',
+  },
+  {
+    email: 'nina.khan@nhs-demo.local',
+    name: 'Dr Nina Khan',
+    title: 'Dr',
+    gmcNumber: '7122255',
+    speciality: 'General Practice',
+  },
+  {
+    email: 'marcus.webb@nhs-demo.local',
+    name: 'Nurse Marcus Webb',
+    title: 'Nurse',
+    gmcNumber: null,
+    speciality: 'Practice Nursing',
+  },
+  {
+    email: 'laura.murray@nhs-demo.local',
+    name: 'Dr Laura Murray',
+    title: 'Dr',
+    gmcNumber: '7233366',
+    speciality: 'General Practice',
+  },
+  {
+    email: 'ryan.patel@nhs-demo.local',
+    name: 'Dr Ryan Patel',
+    title: 'Dr',
+    gmcNumber: '7344477',
+    speciality: 'Paediatrics',
+  },
 ];
 
 // Seed availability for every practitioner x every location currently in the DB.
@@ -75,6 +110,67 @@ function addDays(d: Date, days: number): Date {
 function isoDayOfWeek(d: Date): number {
   const js = d.getDay();
   return js === 0 ? 7 : js;
+}
+
+const PATIENTS_PER_LOCATION = 10;
+const DOCTORS_PER_LOCATION = 10;
+
+async function seedDirectoryPerLocation(prisma: PrismaClient, patientPasswordHash: string) {
+  const locations = await prisma.location.findMany({ select: { id: true, name: true } });
+  const practitioners = await prisma.practitioner.findMany({
+    orderBy: { createdAt: 'asc' },
+    take: DOCTORS_PER_LOCATION,
+    select: { id: true },
+  });
+
+  if (practitioners.length < DOCTORS_PER_LOCATION) {
+    console.warn(
+      `Expected at least ${DOCTORS_PER_LOCATION} practitioners for directory seed; found ${practitioners.length}.`
+    );
+  }
+
+  await prisma.practitionerLocation.deleteMany({});
+
+  const plRows: { practitionerId: string; locationId: string }[] = [];
+  for (const loc of locations) {
+    for (const pr of practitioners) {
+      plRows.push({ practitionerId: pr.id, locationId: loc.id });
+    }
+  }
+  if (plRows.length > 0) {
+    await prisma.practitionerLocation.createMany({
+      data: plRows,
+      skipDuplicates: true,
+    });
+  }
+
+  await prisma.user.deleteMany({
+    where: { email: { startsWith: 'seed.patient.loc-' } },
+  });
+
+  let nhsSeq = 900_000_000;
+  for (const loc of locations) {
+    for (let i = 1; i <= PATIENTS_PER_LOCATION; i += 1) {
+      nhsSeq += 1;
+      const email = `seed.patient.loc-${loc.id}.${i}@nhs-demo.local`;
+      const user = await prisma.user.create({
+        data: {
+          email,
+          passwordHash: patientPasswordHash,
+          name: `Demo Patient (${loc.name.split(' ')[0] ?? 'Clinic'} ${i})`,
+          role: UserRole.PATIENT,
+        },
+      });
+      await prisma.patient.create({
+        data: {
+          userId: user.id,
+          nhsNumber: String(nhsSeq).slice(0, 10),
+          dateOfBirth: new Date(1990 + (i % 20), (i % 12) + 1, (i % 27) + 1),
+          locationId: loc.id,
+        },
+      });
+    }
+  }
 }
 
 async function main() {
@@ -118,6 +214,7 @@ async function main() {
   }
 
   const practitionerPasswordHash = await bcrypt.hash('SeedPractitioner!', SALT_ROUNDS);
+  const patientPasswordHash = await bcrypt.hash('SeedPatient!', SALT_ROUNDS);
 
   for (const p of practitionerSeeds) {
     const user = await prisma.user.upsert({
@@ -250,8 +347,10 @@ async function main() {
     });
   }
 
+  await seedDirectoryPerLocation(prisma, patientPasswordHash);
+
   console.log(
-    `Seeded ${windows.length} availability window(s) and ${slotRows.length} slot row(s) (createMany skipDuplicates).`
+    `Seeded ${windows.length} availability window(s), ${slotRows.length} slot row(s), practitioner–location links, and ${PATIENTS_PER_LOCATION} patients per location.`
   );
 }
 

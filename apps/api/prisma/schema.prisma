@@ -69,6 +69,7 @@ model Practitioner {
   slots         Slot[]
   appointments  Appointment[]
   availabilityWindows PractitionerAvailabilityWindow[]
+  practitionerLocations PractitionerLocation[]
 }
 
 // --- Location (surgery / clinic)
@@ -83,6 +84,20 @@ model Location {
   slots       Slot[]
   patients    Patient[]
   availabilityWindows PractitionerAvailabilityWindow[]
+  practitionerLocations PractitionerLocation[]
+}
+
+/// Practitioners who work at a given clinic (for directory / filtering).
+model PractitionerLocation {
+  id               String   @id @default(cuid())
+  practitionerId   String   @map("practitioner_id")
+  practitioner     Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  locationId       String   @map("location_id")
+  location         Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([practitionerId, locationId])
+  @@index([locationId])
 }
 
 /// Weekly recurring availability template for a practitioner at a location.

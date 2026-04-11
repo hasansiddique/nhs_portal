@@ -1,29 +1,37 @@
 import * as React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 
-import {
-  DashboardSidebar,
-  NhsNotificationsSidebar,
-} from '@your-props/client/web';
+import { DashboardSidebar, NhsNotificationsSidebar } from '@your-props/client/web';
+
+import { DashboardAppointmentDetailSidebar } from './components/dashboard/DashboardAppointmentDetailSidebar';
 
 export const DashboardLayout = () => {
+  const location = useLocation();
+  const appointmentId = new URLSearchParams(location.search).get('appointmentId');
+  const isBookedAppointmentsRoute = location.pathname === '/dashboard/appointments';
+  const showAppointmentDetail = Boolean(isBookedAppointmentsRoute && appointmentId);
+
   return (
     <div className="min-h-screen w-full px-4 pb-8 pt-[96px] lg:px-6">
-      <div className="flex h-full w-full flex-col gap-4 lg:gap-6">
-        <section className="grid h-full w-full gap-4 lg:grid-cols-[260px,minmax(0,1fr),320px]">
+      <div className="mx-auto flex h-full w-full min-w-0 max-w-full min-[1601px]:max-w-[1440px] flex-col gap-4 lg:gap-6">
+        <section className="grid h-full min-h-0 w-full gap-4 lg:grid-cols-[260px,minmax(0,1fr),320px]">
           {/* Left sidebar */}
           <aside className="h-full rounded-[16px] border border-[#393939] bg-[#393939] px-4 py-5">
             <DashboardSidebar />
           </aside>
 
           {/* Center content */}
-          <main className="h-full min-h-[480px] overflow-hidden rounded-[16px] border border-[#393939] bg-[#393939]">
+          <main className="h-full min-h-[480px] min-w-0 w-full overflow-hidden rounded-[16px] border border-[#393939] bg-[#393939]">
             <Outlet />
           </main>
 
-          {/* Right sidebar */}
-          <div className="hidden h-full lg:block">
-            <NhsNotificationsSidebar />
+          {/* Right sidebar: appointment detail on booked page, else notifications */}
+          <div className="hidden h-full min-h-0 lg:block">
+            {showAppointmentDetail && appointmentId ? (
+              <DashboardAppointmentDetailSidebar appointmentId={appointmentId} />
+            ) : (
+              <NhsNotificationsSidebar />
+            )}
           </div>
         </section>
       </div>

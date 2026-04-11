@@ -57,6 +57,7 @@ const router = createBrowserRouter(
             { path: 'appointments', lazy: () => import('./pages/dashboard/appointments').then((m) => ({ Component: m.default })) },
             { path: 'slots', lazy: () => import('./pages/dashboard/slots').then((m) => ({ Component: m.default })) },
             { path: 'patients', lazy: () => import('./pages/dashboard/patients').then((m) => ({ Component: m.default })) },
+            { path: 'doctors', lazy: () => import('./pages/dashboard/doctors').then((m) => ({ Component: m.default })) },
           ],
         },
         {
