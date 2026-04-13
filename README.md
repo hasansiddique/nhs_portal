@@ -125,6 +125,7 @@ Set **JWT_SECRET** in `apps/api/.env` (or root `.env`); default is a dev-only va
 
 ## Notes
 
+- **Prisma / Windows / `PrismaClient` missing (TS2305)**: Run `pnpm prisma:generate` (or `pnpm install`, which runs `postinstall` → `prisma generate`). `nx serve api` and `nx build api` depend on `api:prisma-generate` so the client is generated before TypeScript runs.
 - **Auth**: Login uses REST `/auth/login`; JWT is stored with a `Bearer` prefix (cookie + localStorage `user` payload includes `role`, `patientId`, `practitionerId`, `homeLocationId`, `workLocationIds` where applicable). tRPC sends `Authorization: Bearer <token>`.
 - **Booking**: Staff choose a **patient** in the calendar drawer; patients book without that field (always self).
 - **Seed**: `apps/api/prisma/seed.ts` — run with `pnpm prisma:seed` (see root `package.json`) after migrations.

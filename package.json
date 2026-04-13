@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
+    "postinstall": "prisma generate --schema=apps/api/prisma/schema.prisma",
     "start:web": "nx serve web",
     "start:api": "nx serve api",
     "build:web": "nx build web",
@@ -11,7 +12,7 @@
     "prisma:generate": "nx run api:prisma-generate",
     "prisma:migrate": "nx run api:prisma-migrate",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node --project apps/api/tsconfig.app.json apps/api/prisma/seed.ts"
+    "prisma:seed": "prisma generate --schema=apps/api/prisma/schema.prisma && ts-node --project apps/api/tsconfig.app.json apps/api/prisma/seed.ts"
   },
   "private": true,
   "dependencies": {
