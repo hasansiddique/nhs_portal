@@ -1,26 +1,16 @@
 import Cookies from 'js-cookie';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import {
-  LikesIcon,
-  OffersIcon,
   ProfileFilledIcon,
   MySalesIcon,
   PaymentIcon,
-  ShippingIcon,
-  CommentsIcon,
-  FeedbackIcon,
   FollowersIcon,
   BulkUploadIcon,
   AddNewPropIcon,
-  SavedSearchesIcon,
   LogoutIcon,
-  MyOrdersIcon,
   DashboardIcon,
-  DisputesIcon,
-  DashboardBellIcon,
-  SvgAuctionIcon,
 } from '@your-props/client/icons';
 import { PaymentCheck } from '@your-props/client/utils';
 
@@ -31,138 +21,92 @@ type SidebarNavItem = {
   icon: React.ComponentType<{ fill?: string }>;
   field: string;
   key: string;
-  /** Absolute app path (e.g. `/dashboard`, `/appointments/book`) */
   href?: string;
 };
 
-const widgetSidebarData: { id: number; title: string; content: SidebarNavItem[] }[] = [
-  {
-    id: 0,
-    title: 'YourProps',
-    content: [
+type SidebarSection = { id: number; title: string; content: SidebarNavItem[] };
+
+function readSessionUser(): {
+  role?: string;
+  username?: string;
+  displayName?: string;
+  name?: string;
+  email?: string;
+  avatar?: string;
+  id?: string;
+} {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function sidebarForRole(role: string | undefined): SidebarSection[] {
+  const baseSettings: SidebarNavItem[] = [
+    { icon: ProfileFilledIcon, field: 'Edit Profile', key: 'profile' },
+    { icon: PaymentIcon, field: 'Payment', key: 'payment' },
+    { icon: LogoutIcon, field: 'Logout', key: 'logout' },
+  ];
+
+  if (role === 'PATIENT') {
+    return [
       {
-        icon: DashboardIcon,
-        field: 'Dashboard',
-        key: 'dashboard',
-        href: '/dashboard',
+        id: 0,
+        title: 'YourNHS',
+        content: [
+          { icon: DashboardIcon, field: 'My appointments', key: 'dashboard', href: '/dashboard' },
+          { icon: BulkUploadIcon, field: 'Book appointment', key: 'book', href: '/appointments/book' },
+        ],
       },
+      { id: 4, title: 'Settings', content: baseSettings },
+    ];
+  }
+
+  if (role === 'PRACTITIONER') {
+    return [
       {
-        icon: DashboardBellIcon,
-        field: 'Notifications',
-        key: 'notification',
+        id: 0,
+        title: 'YourNHS',
+        content: [
+          { icon: DashboardIcon, field: 'Dashboard', key: 'dashboard', href: '/dashboard' },
+          { icon: BulkUploadIcon, field: 'Booked', key: 'appointments' },
+          { icon: BulkUploadIcon, field: 'Calendar', key: 'calendar', href: '/appointments/book' },
+          { icon: FollowersIcon, field: 'Patients', key: 'patients' },
+        ],
       },
-    ],
-  },
-  {
-    id: 1,
-    title: 'Appointments',
-    content: [
+      { id: 4, title: 'Settings', content: baseSettings },
+    ];
+  }
+
+  if (role === 'ADMIN') {
+    return [
       {
-        icon: BulkUploadIcon,
-        field: 'Booked',
-        key: 'appointments',
+        id: 0,
+        title: 'YourNHS',
+        content: [
+          { icon: DashboardIcon, field: 'Dashboard', key: 'dashboard', href: '/dashboard' },
+          { icon: BulkUploadIcon, field: 'Booked', key: 'appointments' },
+          { icon: BulkUploadIcon, field: 'Calendar', key: 'calendar', href: '/appointments/book' },
+          { icon: FollowersIcon, field: 'Patients', key: 'patients' },
+          { icon: MySalesIcon, field: 'Doctors', key: 'doctors' },
+          { icon: AddNewPropIcon, field: 'Add patient', key: 'admin-patient', href: '/dashboard/admin/patients/new' },
+          { icon: AddNewPropIcon, field: 'Add doctor', key: 'admin-doctor', href: '/dashboard/admin/doctors/new' },
+        ],
       },
-      {
-        icon: FollowersIcon,
-        field: 'Patients',
-        key: 'patients',
-      },
-      {
-        icon: MySalesIcon,
-        field: 'Doctors',
-        key: 'doctors',
-      },
-      /*{
-        icon: SavedSearchesIcon,
-        field: 'Saved Searches',
-        key: 'saved-searches',
-      },*/
-    ],
-  },
- /* {
-    id: 2,
-    title: 'Trading',
-    content: [
-      {
-        icon: SvgAuctionIcon,
-        field: 'Auctions',
-        key: 'auctions',
-      },
-      {
-        icon: MySalesIcon,
-        field: 'My Sales',
-        key: 'sales',
-      },
-      {
-        icon: MyOrdersIcon,
-        field: 'My Orders',
-        key: 'orders',
-      },
-      {
-        icon: OffersIcon,
-        field: 'Offers',
-        key: 'offers',
-      },
-      {
-        icon: DisputesIcon,
-        field: 'Disputes',
-        key: 'disputes',
-      },
-    ],
-  },
-  {
-    id: 3,
-    title: 'Engagement',
-    content: [
-      {
-        icon: CommentsIcon,
-        field: 'Comments',
-        key: 'comments',
-      },
-      {
-        icon: FeedbackIcon,
-        field: 'Feedback',
-        key: 'feedback',
-      },
-      {
-        icon: LikesIcon,
-        field: 'Likes',
-        key: 'likes',
-      },
-      {
-        icon: FollowersIcon,
-        field: 'Followers',
-        key: 'follows',
-      },
-      // {
-      //   icon: MessagesIcon,
-      //   field: 'Messages',
-      //   key: 'messages',
-      // },
-    ],
-  },*/
-  {
-    id: 4,
-    title: 'Settings',
-    content: [
-      {
-        icon: ProfileFilledIcon,
-        field: 'Edit Profile',
-        key: 'profile',
-      },
-      {
-        icon: PaymentIcon,
-        field: 'Payment',
-        key: 'payment',
-      },
-      {
-        icon: LogoutIcon,
-        field: 'Logout',
-        key: 'logout',
-      },
-    ],
-  },
-];
+      { id: 4, title: 'Settings', content: baseSettings },
+    ];
+  }
+
+  return [
+    {
+      id: 0,
+      title: 'YourNHS',
+      content: [{ icon: DashboardIcon, field: 'Dashboard', key: 'dashboard', href: '/dashboard' }],
+    },
+    { id: 4, title: 'Settings', content: baseSettings },
+  ];
+}
 
 function isNavItemActive(item: SidebarNavItem, pathname: string) {
   if (item.href) {
@@ -198,8 +142,13 @@ function goToNavItem(
 export const DashboardSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const currentUser = JSON.parse(localStorage.getItem('user') as string);
+  const currentUser = readSessionUser();
   const userId = currentUser?.id;
+  const role = currentUser?.role;
+  const displayLabel =
+    currentUser?.username || currentUser?.displayName || currentUser?.name || currentUser?.email || 'User';
+
+  const widgetSidebarData = useMemo(() => sidebarForRole(role), [role]);
 
   const logoutUser = () => {
     localStorage.clear();
@@ -219,11 +168,11 @@ export const DashboardSidebar = () => {
           />
         </div>
 
-        <div className="ml-4">
-          <p className="font-bold leading-[22px] mb-[5px] text-[18px] text-[#EBEBEB]">
-            {currentUser?.username}
+        <div className="ml-4 min-w-0">
+          <p className="font-bold leading-[22px] mb-[5px] text-[18px] text-[#EBEBEB] truncate">{displayLabel}</p>
+          <p className="font-normal text-[13px] leading-[18px] text-[#C5B6B3] truncate">
+            {role ? role.charAt(0) + role.slice(1).toLowerCase() : 'Guest'}
           </p>
-          <p className="font-normal text-[15px] leading-[20px] text-[#C5B6B3]">{`Joined: Jan 2025`}</p>
         </div>
       </div>
 
@@ -234,12 +183,8 @@ export const DashboardSidebar = () => {
       <div id="side-bar" className="side-bar">
         {widgetSidebarData.map((item, index) => (
           <div
-            className={`${
-              index === widgetSidebarData.length - 1
-                ? 'mt-[30px]'
-                : 'my-[30px] '
-            }`}
-            key={index}
+            className={`${index === widgetSidebarData.length - 1 ? 'mt-[30px]' : 'my-[30px] '}`}
+            key={item.id}
           >
             <div className="content-wg-category">
               <p
@@ -249,10 +194,10 @@ export const DashboardSidebar = () => {
               >
                 {item.title}
               </p>
-              {item.content.map((itemm, index) => {
+              {item.content.map((itemm, idx) => {
                 const active = isNavItemActive(itemm, location.pathname);
                 return itemm.key === 'add-item' ? (
-                  <PaymentCheck addShowcaseAllowed key={index}>
+                  <PaymentCheck addShowcaseAllowed key={idx}>
                     <div
                       onClick={() => goToNavItem(itemm, navigate, userId, logoutUser)}
                       className={`flex cursor-pointer items-center hover:text-[#EF6A3B] ${
@@ -271,7 +216,7 @@ export const DashboardSidebar = () => {
                   </PaymentCheck>
                 ) : (
                   <div
-                    key={index}
+                    key={`${itemm.key}-${idx}`}
                     onClick={() => goToNavItem(itemm, navigate, userId, logoutUser)}
                     className={`flex cursor-pointer items-center hover:text-[#EF6A3B] ${
                       active ? 'bg-[#222222] py-[10px] px-[20px] rounded-[10px]' : 'my-[10px]'

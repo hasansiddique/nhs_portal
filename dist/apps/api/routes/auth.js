@@ -35,17 +35,24 @@ function sendError(res, status, messages) {
     res.status(status).json({ messages: messages });
 }
 function toUserPayload(user) {
+    var _a, _b, _c, _d, _e, _f, _g;
+    const displayName = user.name || user.email;
     return {
         id: user.id,
         email: user.email,
         name: user.name,
-        displayName: user.name || user.email,
+        displayName,
+        username: displayName,
         role: user.role,
+        patientId: (_a = user.patient) === null || _a === void 0 ? void 0 : _a.id,
+        practitionerId: (_b = user.practitioner) === null || _b === void 0 ? void 0 : _b.id,
+        homeLocationId: (_d = (_c = user.patient) === null || _c === void 0 ? void 0 : _c.locationId) !== null && _d !== void 0 ? _d : undefined,
+        workLocationIds: (_g = (_f = (_e = user.practitioner) === null || _e === void 0 ? void 0 : _e.practitionerLocations) === null || _f === void 0 ? void 0 : _f.map((l) => l.locationId)) !== null && _g !== void 0 ? _g : undefined,
     };
 }
 function authLogin(req, res) {
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
+        var _a, _b, _c, _d;
         try {
             const body = (req.body || {});
             const username = String((_b = (_a = body.username) !== null && _a !== void 0 ? _a : body.email) !== null && _b !== void 0 ? _b : '').trim();
@@ -61,6 +68,15 @@ function authLogin(req, res) {
             }
             const user = yield prisma_1.prisma.user.findUnique({
                 where: { email },
+                include: {
+                    patient: { select: { id: true, locationId: true } },
+                    practitioner: {
+                        select: {
+                            id: true,
+                            practitionerLocations: { select: { locationId: true } },
+                        },
+                    },
+                },
             });
             if (!user) {
                 sendError(res, 401, { error: 'Invalid email or password' });
@@ -71,7 +87,7 @@ function authLogin(req, res) {
                 sendError(res, 401, { error: 'Invalid email or password' });
                 return;
             }
-            const token = jsonwebtoken_1.default.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+            const token = jsonwebtoken_1.default.sign(Object.assign(Object.assign({ sub: user.id, email: user.email, role: user.role }, (((_c = user.patient) === null || _c === void 0 ? void 0 : _c.id) ? { patientId: user.patient.id } : {})), (((_d = user.practitioner) === null || _d === void 0 ? void 0 : _d.id) ? { practitionerId: user.practitioner.id } : {})), JWT_SECRET, { expiresIn: '7d' });
             res.json({
                 token,
                 user: toUserPayload(user),

@@ -6,6 +6,7 @@ import { trpc, trpcClient } from '@nhs-portal/client-api';
 import { RootLayout } from './RootLayout';
 import { DashboardLayout } from './DashboardLayout';
 import { AuthLayout } from './AuthLayout';
+import { DashboardRoleRoute } from './components/DashboardRoleRoute';
 
 const queryClient = new QueryClient();
 
@@ -56,8 +57,50 @@ const router = createBrowserRouter(
             { index: true, lazy: () => import('./pages/dashboard/index').then((m) => ({ Component: m.default })) },
             { path: 'appointments', lazy: () => import('./pages/dashboard/appointments').then((m) => ({ Component: m.default })) },
             { path: 'slots', lazy: () => import('./pages/dashboard/slots').then((m) => ({ Component: m.default })) },
-            { path: 'patients', lazy: () => import('./pages/dashboard/patients').then((m) => ({ Component: m.default })) },
-            { path: 'doctors', lazy: () => import('./pages/dashboard/doctors').then((m) => ({ Component: m.default })) },
+            {
+              path: 'patients',
+              lazy: () =>
+                import('./pages/dashboard/patients').then((m) => ({
+                  Component: () => (
+                    <DashboardRoleRoute roles={['ADMIN', 'PRACTITIONER']}>
+                      <m.default />
+                    </DashboardRoleRoute>
+                  ),
+                })),
+            },
+            {
+              path: 'doctors',
+              lazy: () =>
+                import('./pages/dashboard/doctors').then((m) => ({
+                  Component: () => (
+                    <DashboardRoleRoute roles={['ADMIN']}>
+                      <m.default />
+                    </DashboardRoleRoute>
+                  ),
+                })),
+            },
+            {
+              path: 'admin/patients/new',
+              lazy: () =>
+                import('./pages/dashboard/admin-add-patient').then((m) => ({
+                  Component: () => (
+                    <DashboardRoleRoute roles={['ADMIN']}>
+                      <m.default />
+                    </DashboardRoleRoute>
+                  ),
+                })),
+            },
+            {
+              path: 'admin/doctors/new',
+              lazy: () =>
+                import('./pages/dashboard/admin-add-doctor').then((m) => ({
+                  Component: () => (
+                    <DashboardRoleRoute roles={['ADMIN']}>
+                      <m.default />
+                    </DashboardRoleRoute>
+                  ),
+                })),
+            },
           ],
         },
         {

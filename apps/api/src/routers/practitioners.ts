@@ -1,8 +1,13 @@
 import { z } from 'zod';
-import { router, publicProcedure } from '../trpc/trpc';
+import bcrypt from 'bcryptjs';
+import { TRPCError } from '@trpc/server';
+import { UserRole } from '@prisma/client';
+import { router, protectedProcedure, adminProcedure } from '../trpc/trpc';
+
+const SALT_ROUNDS = 10;
 
 export const practitionersRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(
       z.object({
         cursor: z.string().optional(),
@@ -11,18 +16,49 @@ export const practitionersRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
+      const user = ctx.user!;
+      const where: Record<string, unknown> = {};
+
+      if (user.role === UserRole.PATIENT) {
+        let locFilter = input.locationId;
+        if (!locFilter && user.patientId) {
+          const p = await ctx.prisma.patient.findUnique({
+            where: { id: user.patientId },
+            select: { locationId: true },
+          });
+          locFilter = p?.locationId ?? undefined;
+        }
+        if (locFilter) {
+          where.practitionerLocations = { some: { locationId: locFilter } };
+        } else {
+          where.practitionerLocations = { some: {} };
+        }
+      } else if (user.role === UserRole.PRACTITIONER && user.practitionerId) {
+        const locs = await ctx.prisma.practitionerLocation.findMany({
+          where: { practitionerId: user.practitionerId },
+          select: { locationId: true },
+        });
+        const ids = locs.map((l) => l.locationId);
+        if (ids.length === 0) {
+          where.id = user.practitionerId;
+        } else if (input.locationId) {
+          where.practitionerLocations = { some: { locationId: input.locationId } };
+        } else {
+          where.OR = [
+            { id: user.practitionerId },
+            { practitionerLocations: { some: { locationId: { in: ids } } } },
+          ];
+        }
+      } else if (user.role === UserRole.ADMIN) {
+        if (input.locationId) {
+          where.practitionerLocations = { some: { locationId: input.locationId } };
+        }
+      }
+
       const items = await ctx.prisma.practitioner.findMany({
         take: input.limit + 1,
         cursor: input.cursor ? { id: input.cursor } : undefined,
-        where: {
-          ...(input.locationId
-            ? {
-                practitionerLocations: {
-                  some: { locationId: input.locationId },
-                },
-              }
-            : {}),
-        },
+        where,
         include: {
           user: { select: { id: true, email: true, name: true } },
           practitionerLocations: {
@@ -40,15 +76,73 @@ export const practitionersRouter = router({
       return { items, nextCursor };
     }),
 
-  byId: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return ctx.prisma.practitioner.findUnique({
-        where: { id: input.id },
-        include: {
-          user: { select: { id: true, email: true, name: true } },
-          slots: { include: { location: true } },
+  byId: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
+    return ctx.prisma.practitioner.findUnique({
+      where: { id: input.id },
+      include: {
+        user: { select: { id: true, email: true, name: true } },
+        slots: { include: { location: true } },
+        practitionerLocations: { include: { location: { select: { id: true, name: true } } } },
+      },
+    });
+  }),
+
+  /** Admin: create clinician login + practitioner + link to locations. */
+  adminRegister: adminProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        password: z.string().min(8),
+        name: z.string().min(1),
+        title: z.string().optional(),
+        speciality: z.string().optional(),
+        gmcNumber: z.string().optional().nullable(),
+        locationIds: z.array(z.string()).min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const email = input.email.trim().toLowerCase();
+      const existing = await ctx.prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        throw new TRPCError({ code: 'CONFLICT', message: 'Email is already registered' });
+      }
+      if (input.gmcNumber) {
+        const gmcTaken = await ctx.prisma.practitioner.findFirst({
+          where: { gmcNumber: input.gmcNumber },
+          select: { id: true },
+        });
+        if (gmcTaken) {
+          throw new TRPCError({ code: 'CONFLICT', message: 'GMC number already in use' });
+        }
+      }
+
+      const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+
+      const user = await ctx.prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          name: input.name,
+          role: UserRole.PRACTITIONER,
         },
       });
+
+      const practitioner = await ctx.prisma.practitioner.create({
+        data: {
+          userId: user.id,
+          title: input.title ?? null,
+          speciality: input.speciality ?? null,
+          gmcNumber: input.gmcNumber ?? null,
+          practitionerLocations: {
+            create: input.locationIds.map((locationId) => ({ locationId })),
+          },
+        },
+        include: {
+          user: { select: { id: true, email: true, name: true } },
+          practitionerLocations: { include: { location: true } },
+        },
+      });
+
+      return practitioner;
     }),
 });

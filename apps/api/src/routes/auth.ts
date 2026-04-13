@@ -28,13 +28,29 @@ function sendError(res: Response, status: number, messages: Record<string, strin
   res.status(status).json({ messages: messages });
 }
 
-function toUserPayload(user: { id: string; email: string; name: string | null; role: string }) {
+function toUserPayload(user: {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  patient?: { id: string; locationId: string | null } | null;
+  practitioner?: {
+    id: string;
+    practitionerLocations: { locationId: string }[];
+  } | null;
+}) {
+  const displayName = user.name || user.email;
   return {
     id: user.id,
     email: user.email,
     name: user.name,
-    displayName: user.name || user.email,
+    displayName,
+    username: displayName,
     role: user.role,
+    patientId: user.patient?.id,
+    practitionerId: user.practitioner?.id,
+    homeLocationId: user.patient?.locationId ?? undefined,
+    workLocationIds: user.practitioner?.practitionerLocations?.map((l) => l.locationId) ?? undefined,
   };
 }
 
@@ -56,6 +72,15 @@ export async function authLogin(req: Request, res: Response) {
     }
     const user = await prisma.user.findUnique({
       where: { email },
+      include: {
+        patient: { select: { id: true, locationId: true } },
+        practitioner: {
+          select: {
+            id: true,
+            practitionerLocations: { select: { locationId: true } },
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -70,7 +95,13 @@ export async function authLogin(req: Request, res: Response) {
     }
 
     const token = jwt.sign(
-      { sub: user.id, email: user.email },
+      {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        ...(user.patient?.id ? { patientId: user.patient.id } : {}),
+        ...(user.practitioner?.id ? { practitionerId: user.practitioner.id } : {}),
+      },
       JWT_SECRET,
       { expiresIn: '7d' }
     );

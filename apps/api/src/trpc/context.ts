@@ -6,16 +6,19 @@ export interface AuthUser {
   id: string;
   email: string;
   role: string;
+  patientId?: string;
+  practitionerId?: string;
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nhs-portal-secret-change-in-production';
 
 export const createContext = ({ req, res }: CreateExpressContextOptions) => {
-  let user = (req as any).user as AuthUser | undefined;
+  let user = (req as { user?: AuthUser }).user as AuthUser | undefined;
 
   if (!user) {
     const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    const raw = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const token = raw?.trim();
 
     if (token) {
       try {
@@ -23,6 +26,8 @@ export const createContext = ({ req, res }: CreateExpressContextOptions) => {
           sub?: string;
           email?: string;
           role?: string;
+          patientId?: string;
+          practitionerId?: string;
         };
 
         if (payload.sub && payload.email) {
@@ -30,6 +35,8 @@ export const createContext = ({ req, res }: CreateExpressContextOptions) => {
             id: String(payload.sub),
             email: String(payload.email),
             role: typeof payload.role === 'string' ? payload.role : 'PATIENT',
+            patientId: typeof payload.patientId === 'string' ? payload.patientId : undefined,
+            practitionerId: typeof payload.practitionerId === 'string' ? payload.practitionerId : undefined,
           };
         }
       } catch {

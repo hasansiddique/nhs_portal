@@ -35,7 +35,20 @@ type CalendarAppointment = {
   practitionerName: string;
   locationName: string;
   status: string;
+  rawStatus: string;
 };
+
+function getSessionUser(): {
+  role?: string;
+  patientId?: string;
+  practitionerId?: string;
+} {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
+  }
+}
 
 /** Match reference calendar (dark grid UI) */
 const CAL_BG = '#0f1016';
@@ -120,6 +133,8 @@ function trpcErrorMessage(error: unknown): string {
 export function AppointmentCalendarModule() {
   const utils = trpc.useUtils();
   const isSignedIn = !isEmpty(Cookies.get('token'));
+  const session = getSessionUser();
+  const staffCanManage = session.role === 'ADMIN' || session.role === 'PRACTITIONER';
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailAppointment, setDetailAppointment] = useState<CalendarAppointment | null>(null);
@@ -134,6 +149,9 @@ export function AppointmentCalendarModule() {
   const [reason, setReason] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | string>('all');
   const [practitionerFilter, setPractitionerFilter] = useState<string>('all');
+  const [staffPatientId, setStaffPatientId] = useState('');
+  const [detailEditStatus, setDetailEditStatus] = useState<string>('SCHEDULED');
+  const [detailEditNotes, setDetailEditNotes] = useState('');
 
   const calendarDays = useMemo(() => buildCalendarDays(currentMonth), [currentMonth]);
   const calendarWeeks = useMemo(() => {
@@ -146,12 +164,19 @@ export function AppointmentCalendarModule() {
   const rangeStart = calendarDays[0];
   const rangeEnd = addDays(calendarDays[calendarDays.length - 1], 1);
 
-  const appointmentsQuery = trpc.appointments.list.useQuery({
-    from: rangeStart,
-    to: rangeEnd,
-    limit: 200,
-  });
-  const practitionersQuery = trpc.practitioners.list.useQuery({ limit: 100 });
+  const appointmentsQuery = trpc.appointments.list.useQuery(
+    {
+      from: rangeStart,
+      to: rangeEnd,
+      limit: 200,
+    },
+    { enabled: isSignedIn }
+  );
+  const practitionersQuery = trpc.practitioners.list.useQuery({ limit: 100 }, { enabled: isSignedIn });
+  const staffPatientsQuery = trpc.patients.list.useQuery(
+    { limit: 200 },
+    { enabled: isSignedIn && staffCanManage && drawerOpen }
+  );
   const locationsQuery = trpc.locations.list.useQuery();
 
   const slotDayStart = useMemo(() => startOfDay(selectedDate), [selectedDate]);
@@ -176,6 +201,18 @@ export function AppointmentCalendarModule() {
       setDrawerOpen(false);
       setReason('');
       setSelectedSlotId(null);
+      setStaffPatientId('');
+    },
+    onError: (error) => {
+      toast.error(trpcErrorMessage(error));
+    },
+  });
+
+  const updateAppointmentStatus = trpc.appointments.updateStatus.useMutation({
+    onSuccess: async () => {
+      await utils.appointments.list.invalidate();
+      toast.success('Appointment updated');
+      setDetailAppointment(null);
     },
     onError: (error) => {
       toast.error(trpcErrorMessage(error));
@@ -217,16 +254,21 @@ export function AppointmentCalendarModule() {
           practitionerName: appointment.practitioner?.user?.name ?? 'Practitioner',
           locationName: appointment.slot.location?.name ?? 'Clinic',
           status,
+          rawStatus: rawStatus || 'SCHEDULED',
         };
       }),
     [appointmentsQuery.data?.items]
   );
 
   useEffect(() => {
+    if (session.role === 'PRACTITIONER' && session.practitionerId) {
+      setPractitionerId(session.practitionerId);
+      return;
+    }
     if (!practitionerId && practitioners[0]) {
       setPractitionerId(practitioners[0].id);
     }
-  }, [practitionerId, practitioners]);
+  }, [practitionerId, practitioners, session.practitionerId, session.role]);
 
   useEffect(() => {
     if (!locationId && locations[0]) {
@@ -287,6 +329,11 @@ export function AppointmentCalendarModule() {
     setMorePopup(null);
     setDrawerOpen(false);
     setDetailAppointment(appointment);
+    const row = (appointmentsQuery.data?.items ?? []).find((a: { id: string }) => a.id === appointment.id) as
+      | { status?: string; notes?: string | null }
+      | undefined;
+    setDetailEditStatus(String(row?.status ?? appointment.rawStatus ?? 'SCHEDULED'));
+    setDetailEditNotes(String(row?.notes ?? ''));
   };
 
   const closeDetailDrawer = () => setDetailAppointment(null);
@@ -333,10 +380,15 @@ export function AppointmentCalendarModule() {
       toast.error('Select an available time slot');
       return;
     }
+    if (staffCanManage && !staffPatientId) {
+      toast.error('Select a patient for this appointment');
+      return;
+    }
 
     createAppointment.mutate({
       slotId: selectedSlotId,
       reason: reason.trim() || undefined,
+      ...(staffCanManage && staffPatientId ? { patientId: staffPatientId } : {}),
     });
   };
 
@@ -702,6 +754,7 @@ export function AppointmentCalendarModule() {
                 <Label className="mb-2 block">Practitioner</Label>
                 <select
                   value={practitionerId}
+                  disabled={session.role === 'PRACTITIONER'}
                   onChange={(event) => setPractitionerId(event.target.value)}
                   className={`h-14 w-full rounded-[14px] px-4 text-base outline-none ${CAL_BD}`}
                   style={{
@@ -737,6 +790,28 @@ export function AppointmentCalendarModule() {
                   ))}
                 </select>
               </div>
+
+              {staffCanManage && (
+                <div>
+                  <Label className="mb-2 block">Patient</Label>
+                  <select
+                    value={staffPatientId}
+                    onChange={(event) => setStaffPatientId(event.target.value)}
+                    className={`h-14 w-full rounded-[14px] px-4 text-base outline-none ${CAL_BD}`}
+                    style={{
+                      backgroundColor: 'var(--bg-section2)',
+                      color: 'var(--primary-color2)',
+                    }}
+                  >
+                    <option value="">Select patient</option>
+                    {(staffPatientsQuery.data?.items ?? []).map((p: { id: string; user?: { name?: string | null; email?: string | null } }) => (
+                      <option key={p.id} value={p.id}>
+                        {p.user?.name ?? p.user?.email ?? 'Patient'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <Label className="mb-2 block">Available times</Label>
@@ -987,7 +1062,7 @@ export function AppointmentCalendarModule() {
                       Status
                     </dt>
                     <dd className="mt-1 text-base font-medium" style={{ color: 'var(--primary-color2)' }}>
-                      {detailAppointment.status}
+                      {detailAppointment.rawStatus.replace(/_/g, ' ')}
                     </dd>
                   </div>
                   {detailAppointment.title?.trim() && (
@@ -1001,6 +1076,66 @@ export function AppointmentCalendarModule() {
                     </div>
                   )}
                 </dl>
+
+                {staffCanManage && detailAppointment && (
+                  <div className="mt-8 space-y-4">
+                    <div>
+                      <Label className="mb-2 block">Update status</Label>
+                      <select
+                        value={detailEditStatus}
+                        onChange={(e) => setDetailEditStatus(e.target.value)}
+                        className={`h-12 w-full rounded-[14px] px-4 text-base outline-none ${CAL_BD}`}
+                        style={{ backgroundColor: 'var(--bg-section2)', color: 'var(--primary-color2)' }}
+                      >
+                        <option value="SCHEDULED">Scheduled</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CANCELLED">Cancelled</option>
+                        <option value="NO_SHOW">No show</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="mb-2 block">Clinical notes</Label>
+                      <Textarea
+                        rows={4}
+                        value={detailEditNotes}
+                        onChange={(e) => setDetailEditNotes(e.target.value)}
+                        className="!rounded-[14px] !border-[1px] !border-solid !border-white/[0.07] !bg-[var(--bg-section2)] !text-[var(--primary-color2)]"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={updateAppointmentStatus.isPending}
+                      onClick={() =>
+                        updateAppointmentStatus.mutate({
+                          id: detailAppointment.id,
+                          status: detailEditStatus as 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW',
+                          notes: detailEditNotes.trim() || undefined,
+                        })
+                      }
+                    >
+                      {updateAppointmentStatus.isPending ? 'Saving…' : 'Save changes'}
+                    </Button>
+                  </div>
+                )}
+
+                {session.role === 'PATIENT' && detailAppointment && detailAppointment.rawStatus === 'SCHEDULED' && (
+                  <div className="mt-8">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={updateAppointmentStatus.isPending}
+                      onClick={() =>
+                        updateAppointmentStatus.mutate({
+                          id: detailAppointment.id,
+                          status: 'CANCELLED',
+                        })
+                      }
+                      className="!border-rose-500/50 text-rose-200"
+                    >
+                      Cancel appointment
+                    </Button>
+                  </div>
+                )}
               </div>
             </aside>
           </div>,

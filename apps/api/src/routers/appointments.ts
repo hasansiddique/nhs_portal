@@ -1,7 +1,10 @@
 import { z } from 'zod';
-import { router, publicProcedure, protectedProcedure } from '../trpc/trpc';
+import { TRPCError } from '@trpc/server';
+import { UserRole, type AppointmentStatus } from '@prisma/client';
+import { router, protectedProcedure, staffProcedure } from '../trpc/trpc';
+import type { Context } from '../trpc/context';
 
-async function generateDemoNhsNumber(ctx: any) {
+async function generateDemoNhsNumber(ctx: { prisma: Context['prisma'] }) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const candidate = String(Date.now() + Math.floor(Math.random() * 1000)).slice(-10);
     const existing = await ctx.prisma.patient.findUnique({
@@ -17,47 +20,72 @@ async function generateDemoNhsNumber(ctx: any) {
   return String(Date.now()).padStart(10, '0').slice(-10);
 }
 
-async function resolvePatientIdForAppointment(ctx: any, patientId?: string) {
-  if (patientId) {
+async function resolvePatientIdForAppointment(ctx: Context, inputPatientId?: string) {
+  const user = ctx.user;
+  if (!user) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'You must be signed in' });
+  }
+
+  if (user.role === UserRole.PATIENT) {
+    let selfId = user.patientId;
+    if (!selfId) {
+      const row = await ctx.prisma.patient.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      selfId = row?.id;
+    }
+    if (!selfId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Patient profile is not linked to this account' });
+    }
+    if (inputPatientId && inputPatientId !== selfId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'You can only book for yourself' });
+    }
+    return selfId;
+  }
+
+  if (inputPatientId) {
     const patient = await ctx.prisma.patient.findUnique({
-      where: { id: patientId },
+      where: { id: inputPatientId },
       select: { id: true },
     });
-
     if (!patient) {
-      throw new Error('Patient not found');
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
     }
 
-    return patient.id;
+    if (user.role === UserRole.PRACTITIONER && user.practitionerId) {
+      const patientRow = await ctx.prisma.patient.findUnique({
+        where: { id: inputPatientId },
+        select: { locationId: true },
+      });
+      if (!patientRow?.locationId) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Patient has no clinic on file; an admin must assign a location first',
+        });
+      }
+      const allowed = await ctx.prisma.practitionerLocation.findFirst({
+        where: {
+          practitionerId: user.practitionerId,
+          locationId: patientRow.locationId,
+        },
+      });
+      if (!allowed) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You can only book patients registered at a location where you work',
+        });
+      }
+    }
+
+    return inputPatientId;
   }
 
-  if (!ctx.user?.id) {
-    throw new Error('You must be signed in to create an appointment');
-  }
-
-  const existingPatient = await ctx.prisma.patient.findUnique({
-    where: { userId: ctx.user.id },
-    select: { id: true },
-  });
-
-  if (existingPatient) {
-    return existingPatient.id;
-  }
-
-  const createdPatient = await ctx.prisma.patient.create({
-    data: {
-      userId: ctx.user.id,
-      nhsNumber: await generateDemoNhsNumber(ctx),
-      dateOfBirth: new Date('1990-01-01T00:00:00.000Z'),
-    },
-    select: { id: true },
-  });
-
-  return createdPatient.id;
+  throw new TRPCError({ code: 'BAD_REQUEST', message: 'patientId is required' });
 }
 
 async function assertNoAppointmentConflicts(
-  ctx: any,
+  ctx: Context,
   input: { patientId: string; practitionerId: string; startAt: Date; endAt: Date }
 ) {
   const [patientConflict, practitionerConflict] = await Promise.all([
@@ -86,16 +114,106 @@ async function assertNoAppointmentConflicts(
   ]);
 
   if (patientConflict) {
-    throw new Error('You already have an appointment at that time');
+    throw new TRPCError({ code: 'CONFLICT', message: 'You already have an appointment at that time' });
   }
 
   if (practitionerConflict) {
-    throw new Error('This appointment time is no longer available');
+    throw new TRPCError({ code: 'CONFLICT', message: 'This appointment time is no longer available' });
   }
 }
 
+async function getAppointmentOrThrow(ctx: Context, id: string) {
+  const row = await ctx.prisma.appointment.findUnique({
+    where: { id },
+    include: {
+      patient: { select: { id: true, userId: true, locationId: true } },
+      slot: { select: { locationId: true } },
+    },
+  });
+  if (!row) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Appointment not found' });
+  }
+  return row;
+}
+
+function assertCanReadAppointment(
+  user: NonNullable<Context['user']>,
+  row: { patientId: string; practitionerId: string; patient: { userId: string; locationId: string | null } }
+) {
+  if (user.role === UserRole.ADMIN) return;
+
+  if (user.role === UserRole.PATIENT) {
+    if (user.patientId !== row.patientId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'You cannot view this appointment' });
+    }
+    return;
+  }
+
+  if (user.role === UserRole.PRACTITIONER) {
+    if (user.practitionerId === row.practitionerId) return;
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'You cannot view this appointment' });
+  }
+
+  throw new TRPCError({ code: 'FORBIDDEN', message: 'You cannot view this appointment' });
+}
+
+function buildListWhere(
+  user: NonNullable<Context['user']>,
+  input: {
+    patientId?: string;
+    practitionerId?: string;
+    status?: AppointmentStatus;
+    from?: Date;
+    to?: Date;
+    locationId?: string;
+  }
+): Record<string, unknown> {
+  const where: Record<string, unknown> = {};
+
+  if (user.role === UserRole.PATIENT) {
+    if (!user.patientId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Patient profile is not linked' });
+    }
+    where.patientId = user.patientId;
+    if (input.practitionerId) {
+      where.practitionerId = input.practitionerId;
+    }
+  } else if (user.role === UserRole.PRACTITIONER) {
+    if (!user.practitionerId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Practitioner profile is not linked' });
+    }
+    where.practitionerId = user.practitionerId;
+    if (input.patientId) {
+      where.patientId = input.patientId;
+    }
+  } else if (user.role === UserRole.ADMIN) {
+    if (input.patientId) where.patientId = input.patientId;
+    if (input.practitionerId) where.practitionerId = input.practitionerId;
+  }
+
+  if (input.status) {
+    where.status = input.status;
+  }
+
+  const slotFilter: Record<string, unknown> = {};
+  if (input.from || input.to) {
+    slotFilter.startAt = {
+      ...(input.from && { gte: input.from }),
+      ...(input.to && { lte: input.to }),
+    };
+  }
+  if (input.locationId) {
+    slotFilter.locationId = input.locationId;
+  }
+  if (Object.keys(slotFilter).length > 0) {
+    where.slot = slotFilter;
+  }
+
+  return where;
+}
+
 export const appointmentsRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(
       z.object({
         patientId: z.string().optional(),
@@ -104,21 +222,13 @@ export const appointmentsRouter = router({
         from: z.coerce.date().optional(),
         to: z.coerce.date().optional(),
         limit: z.number().min(1).max(500).default(50),
+        locationId: z.string().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
-      const where: any = {};
-      if (input.patientId) where.patientId = input.patientId;
-      if (input.practitionerId) where.practitionerId = input.practitionerId;
-      if (input.status) where.status = input.status;
-      if (input.from || input.to) {
-        where.slot = {
-          startAt: {
-            ...(input.from && { gte: input.from }),
-            ...(input.to && { lte: input.to }),
-          },
-        };
-      }
+      const user = ctx.user!;
+      const where = buildListWhere(user, input);
+
       const items = await ctx.prisma.appointment.findMany({
         where,
         take: input.limit,
@@ -132,18 +242,28 @@ export const appointmentsRouter = router({
       return { items };
     }),
 
-  byId: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return ctx.prisma.appointment.findUnique({
-        where: { id: input.id },
-        include: {
-          patient: { include: { user: { select: { name: true, email: true, phone: true } } } },
-          practitioner: { include: { user: { select: { name: true } } } },
-          slot: { include: { location: true } },
-        },
-      });
-    }),
+  byId: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
+    const appointment = await ctx.prisma.appointment.findUnique({
+      where: { id: input.id },
+      include: {
+        patient: { include: { user: { select: { name: true, email: true, phone: true } } } },
+        practitioner: { include: { user: { select: { name: true } } } },
+        slot: { include: { location: true } },
+      },
+    });
+    if (!appointment) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Appointment not found' });
+    }
+    assertCanReadAppointment(ctx.user!, {
+      patientId: appointment.patientId,
+      practitionerId: appointment.practitionerId,
+      patient: {
+        userId: appointment.patient.userId,
+        locationId: appointment.patient.locationId ?? null,
+      },
+    });
+    return appointment;
+  }),
 
   create: protectedProcedure
     .input(
@@ -158,15 +278,22 @@ export const appointmentsRouter = router({
         where: { id: input.slotId },
         include: { appointment: true },
       });
-      if (!slot) throw new Error('Slot not found');
-      if (slot.appointment) throw new Error('Slot already booked');
+      if (!slot) throw new TRPCError({ code: 'NOT_FOUND', message: 'Slot not found' });
+      if (slot.appointment) throw new TRPCError({ code: 'CONFLICT', message: 'Slot already booked' });
+
+      if (ctx.user!.role === UserRole.PRACTITIONER && ctx.user!.practitionerId !== slot.practitionerId) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'This slot is for a different practitioner' });
+      }
+
       const patientId = await resolvePatientIdForAppointment(ctx, input.patientId);
+
       await assertNoAppointmentConflicts(ctx, {
         patientId,
         practitionerId: slot.practitionerId,
         startAt: slot.startAt,
         endAt: slot.endAt,
       });
+
       return ctx.prisma.appointment.create({
         data: {
           patientId,
@@ -181,10 +308,10 @@ export const appointmentsRouter = router({
       });
     }),
 
-  createFromCalendar: protectedProcedure
+  createFromCalendar: staffProcedure
     .input(
       z.object({
-        patientId: z.string().optional(),
+        patientId: z.string(),
         practitionerId: z.string(),
         locationId: z.string(),
         startAt: z.coerce.date(),
@@ -194,13 +321,35 @@ export const appointmentsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       if (input.endAt <= input.startAt) {
-        throw new Error('Appointment end time must be after the start time');
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Appointment end time must be after the start time' });
       }
 
-      const patientId = await resolvePatientIdForAppointment(ctx, input.patientId);
+      if (ctx.user!.role === UserRole.PRACTITIONER && ctx.user!.practitionerId !== input.practitionerId) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'You can only create appointments as yourself' });
+      }
+
+      const patient = await ctx.prisma.patient.findUnique({
+        where: { id: input.patientId },
+        select: { id: true, locationId: true },
+      });
+      if (!patient) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
+      }
+
+      if (ctx.user!.role === UserRole.PRACTITIONER && ctx.user!.practitionerId) {
+        const ok = await ctx.prisma.practitionerLocation.findFirst({
+          where: {
+            practitionerId: ctx.user.practitionerId,
+            locationId: input.locationId,
+          },
+        });
+        if (!ok) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not work at this location' });
+        }
+      }
 
       await assertNoAppointmentConflicts(ctx, {
-        patientId,
+        patientId: input.patientId,
         practitionerId: input.practitionerId,
         startAt: input.startAt,
         endAt: input.endAt,
@@ -217,7 +366,7 @@ export const appointmentsRouter = router({
       });
 
       if (existingSlot?.appointment) {
-        throw new Error('This appointment time is no longer available');
+        throw new TRPCError({ code: 'CONFLICT', message: 'This appointment time is no longer available' });
       }
 
       const slot =
@@ -233,7 +382,7 @@ export const appointmentsRouter = router({
 
       return ctx.prisma.appointment.create({
         data: {
-          patientId,
+          patientId: input.patientId,
           slotId: slot.id,
           practitionerId: input.practitionerId,
           reason: input.reason,
@@ -255,6 +404,22 @@ export const appointmentsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const row = await getAppointmentOrThrow(ctx, input.id);
+      const user = ctx.user!;
+
+      if (user.role === UserRole.PATIENT) {
+        if (user.patientId !== row.patientId) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'You cannot update this appointment' });
+        }
+        if (input.status !== 'CANCELLED') {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Patients may only cancel appointments' });
+        }
+      } else if (user.role === UserRole.PRACTITIONER) {
+        if (user.practitionerId !== row.practitionerId) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'You cannot update this appointment' });
+        }
+      }
+
       return ctx.prisma.appointment.update({
         where: { id: input.id },
         data: { status: input.status, notes: input.notes },

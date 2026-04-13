@@ -8,6 +8,16 @@ const SALT_ROUNDS = 10;
 /** Days ahead to materialise bookable slots from availability windows */
 const SLOT_GENERATION_DAYS = 90;
 
+/** Postgres rejects `IN (...)` with more than ~32k bind variables. */
+const DELETE_SLOT_IDS_CHUNK = 8000;
+
+async function deleteSlotsByIdsInChunks(ids: string[]) {
+  for (let i = 0; i < ids.length; i += DELETE_SLOT_IDS_CHUNK) {
+    const chunk = ids.slice(i, i + DELETE_SLOT_IDS_CHUNK);
+    await prisma.slot.deleteMany({ where: { id: { in: chunk } } });
+  }
+}
+
 type PractitionerSeed = {
   email: string;
   name: string;
@@ -306,7 +316,7 @@ async function main() {
   });
   const slotIdsToRemove = freeFutureSlots.filter((s) => !s.appointment).map((s) => s.id);
   if (slotIdsToRemove.length > 0) {
-    await prisma.slot.deleteMany({ where: { id: { in: slotIdsToRemove } } });
+    await deleteSlotsByIdsInChunks(slotIdsToRemove);
   }
 
   const windows = await prisma.practitionerAvailabilityWindow.findMany({
@@ -349,8 +359,50 @@ async function main() {
 
   await seedDirectoryPerLocation(prisma, patientPasswordHash);
 
+  const DEMO_PASSWORD = 'Demo2026!';
+  const demoPasswordHash = await bcrypt.hash(DEMO_PASSWORD, SALT_ROUNDS);
+
+  await prisma.user.upsert({
+    where: { email: 'admin@nhs-demo.local' },
+    update: { passwordHash: demoPasswordHash, name: 'Demo Admin', role: UserRole.ADMIN },
+    create: {
+      email: 'admin@nhs-demo.local',
+      passwordHash: demoPasswordHash,
+      name: 'Demo Admin',
+      role: UserRole.ADMIN,
+    },
+  });
+
+  const demoHomeLocationId = 'loc-glasgow-central';
+  const demoPatientUser = await prisma.user.upsert({
+    where: { email: 'patient@nhs-demo.local' },
+    update: { passwordHash: demoPasswordHash, name: 'Demo Patient', role: UserRole.PATIENT },
+    create: {
+      email: 'patient@nhs-demo.local',
+      passwordHash: demoPasswordHash,
+      name: 'Demo Patient',
+      role: UserRole.PATIENT,
+    },
+  });
+
+  await prisma.patient.upsert({
+    where: { userId: demoPatientUser.id },
+    update: { locationId: demoHomeLocationId },
+    create: {
+      userId: demoPatientUser.id,
+      nhsNumber: '9990001111',
+      dateOfBirth: new Date('1985-05-15T00:00:00.000Z'),
+      locationId: demoHomeLocationId,
+    },
+  });
+
+  await prisma.user.updateMany({
+    where: { email: 'sarah.mitchell@nhs-demo.local' },
+    data: { passwordHash: demoPasswordHash },
+  });
+
   console.log(
-    `Seeded ${windows.length} availability window(s), ${slotRows.length} slot row(s), practitioner–location links, and ${PATIENTS_PER_LOCATION} patients per location.`
+    `Seeded ${windows.length} availability window(s), ${slotRows.length} slot row(s), practitioner–location links, and ${PATIENTS_PER_LOCATION} patients per location. Demo logins (password ${DEMO_PASSWORD}): admin@nhs-demo.local, patient@nhs-demo.local, sarah.mitchell@nhs-demo.local (doctor).`
   );
 }
 
