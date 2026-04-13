@@ -5,6 +5,11 @@ const menus = [
     links: '/appointments',
   },
   {
+    id: 4,
+    name: 'Analytics',
+    links: '/dashboard/data-insights',
+  },
+  {
     id: 3,
     name: 'Discover',
     links: '#',

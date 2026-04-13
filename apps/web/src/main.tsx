@@ -55,6 +55,10 @@ const router = createBrowserRouter(
           HydrateFallback: Fallback,
           children: [
             { index: true, lazy: () => import('./pages/dashboard/index').then((m) => ({ Component: m.default })) },
+            {
+              path: 'data-insights',
+              lazy: () => import('./pages/dashboard/data-insights').then((m) => ({ Component: m.default })),
+            },
             { path: 'appointments', lazy: () => import('./pages/dashboard/appointments').then((m) => ({ Component: m.default })) },
             { path: 'slots', lazy: () => import('./pages/dashboard/slots').then((m) => ({ Component: m.default })) },
             {

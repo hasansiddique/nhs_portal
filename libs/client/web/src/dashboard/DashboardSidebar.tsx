@@ -11,6 +11,7 @@ import {
   AddNewPropIcon,
   LogoutIcon,
   DashboardIcon,
+  GridIcon,
 } from '@your-props/client/icons';
 import { PaymentCheck } from '@your-props/client/utils';
 
@@ -56,6 +57,7 @@ function sidebarForRole(role: string | undefined): SidebarSection[] {
         title: 'YourNHS',
         content: [
           { icon: DashboardIcon, field: 'My appointments', key: 'dashboard', href: '/dashboard' },
+          { icon: GridIcon, field: 'Analytics', key: 'data-insights', href: '/dashboard/data-insights' },
           { icon: BulkUploadIcon, field: 'Book appointment', key: 'book', href: '/appointments/book' },
         ],
       },
@@ -70,6 +72,7 @@ function sidebarForRole(role: string | undefined): SidebarSection[] {
         title: 'YourNHS',
         content: [
           { icon: DashboardIcon, field: 'Dashboard', key: 'dashboard', href: '/dashboard' },
+          { icon: GridIcon, field: 'Analytics', key: 'data-insights', href: '/dashboard/data-insights' },
           { icon: BulkUploadIcon, field: 'Booked', key: 'appointments' },
           { icon: BulkUploadIcon, field: 'Calendar', key: 'calendar', href: '/appointments/book' },
           { icon: FollowersIcon, field: 'Patients', key: 'patients' },
@@ -86,6 +89,7 @@ function sidebarForRole(role: string | undefined): SidebarSection[] {
         title: 'YourNHS',
         content: [
           { icon: DashboardIcon, field: 'Dashboard', key: 'dashboard', href: '/dashboard' },
+          { icon: GridIcon, field: 'Analytics', key: 'data-insights', href: '/dashboard/data-insights' },
           { icon: BulkUploadIcon, field: 'Booked', key: 'appointments' },
           { icon: BulkUploadIcon, field: 'Calendar', key: 'calendar', href: '/appointments/book' },
           { icon: FollowersIcon, field: 'Patients', key: 'patients' },
@@ -102,7 +106,10 @@ function sidebarForRole(role: string | undefined): SidebarSection[] {
     {
       id: 0,
       title: 'YourNHS',
-      content: [{ icon: DashboardIcon, field: 'Dashboard', key: 'dashboard', href: '/dashboard' }],
+      content: [
+        { icon: DashboardIcon, field: 'Dashboard', key: 'dashboard', href: '/dashboard' },
+        { icon: GridIcon, field: 'Analytics', key: 'data-insights', href: '/dashboard/data-insights' },
+      ],
     },
     { id: 4, title: 'Settings', content: baseSettings },
   ];

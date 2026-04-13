@@ -22,6 +22,7 @@ import {
   DashboardIcon,
   LogoutIcon,
   ProfileFilledIcon,
+  GridIcon,
 } from '@your-props/client/icons';
 
 import menus from '../menu';
@@ -466,6 +467,18 @@ export const Header = () => {
                                   <DashboardIcon />
                                   <p className="font-semibold text-[18px]">
                                     Dashboard
+                                  </p>
+                                </button>
+                              </Dropdown.Item>
+                              <Dropdown.Item className="mb-4 p-0 whitespace-normal hover:bg-transparent focus:bg-transparent">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate('/dashboard/data-insights')}
+                                  className="btn-icon flex gap-6 w-full h-[38px] rounded-[10px] bg-transparent border-transparent px-[12px] py-[6px] mr-3"
+                                >
+                                  <GridIcon />
+                                  <p className="font-semibold text-[18px]">
+                                    Analytics
                                   </p>
                                 </button>
                               </Dropdown.Item>
