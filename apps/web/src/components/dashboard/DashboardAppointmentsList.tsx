@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ChevronRight, Search } from 'lucide-react';
 import { trpc } from '@nhs-portal/client-api';
+import { activeLocationIdsForApi, useLocationStore } from '@your-props/client/utils';
 
 const ACCENT_ORANGE = '#ef6b3b';
 
@@ -78,10 +79,34 @@ export function DashboardAppointmentsList({ mode = 'home', urlFilters }: Dashboa
   const [query, setQuery] = useState('');
   const isBooked = mode === 'booked';
 
+  const storeLocations = useLocationStore((s) => s.locations);
+  const selectedLocationIds = useLocationStore((s) => s.selectedLocationIds);
+  const setLocations = useLocationStore((s) => s.setLocations);
+  const locationsQuery = trpc.locations.list.useQuery();
+
+  useEffect(() => {
+    if (locationsQuery.data && locationsQuery.data.length > 0 && storeLocations.length === 0) {
+      setLocations(locationsQuery.data.map((l) => ({ id: l.id, name: l.name })));
+    }
+  }, [locationsQuery.data, storeLocations.length, setLocations]);
+
+  const allLocationIds = useMemo(
+    () =>
+      storeLocations.length > 0
+        ? storeLocations.map((l) => l.id)
+        : (locationsQuery.data ?? []).map((l) => l.id),
+    [storeLocations, locationsQuery.data]
+  );
+  const activeIds = useMemo(
+    () => activeLocationIdsForApi(selectedLocationIds, allLocationIds),
+    [selectedLocationIds, allLocationIds]
+  );
+
   const { data, isLoading } = trpc.appointments.list.useQuery({
     limit: isBooked ? 200 : 80,
     ...(urlFilters?.practitionerId ? { practitionerId: urlFilters.practitionerId } : {}),
     ...(urlFilters?.patientId ? { patientId: urlFilters.patientId } : {}),
+    ...(activeIds?.length ? { locationIds: activeIds } : {}),
   });
 
   const items = useMemo(() => {

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { activeLocationIdsForApi, useLocationStore } from '@your-props/client/utils';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
@@ -164,20 +165,49 @@ export function AppointmentCalendarModule() {
   const rangeStart = calendarDays[0];
   const rangeEnd = addDays(calendarDays[calendarDays.length - 1], 1);
 
+  const storeLocations = useLocationStore((s) => s.locations);
+  const selectedLocationIds = useLocationStore((s) => s.selectedLocationIds);
+  const setLocations = useLocationStore((s) => s.setLocations);
+  const locationsQuery = trpc.locations.list.useQuery();
+  const apiLocations = locationsQuery.data ?? [];
+
+  useEffect(() => {
+    if (locationsQuery.data && locationsQuery.data.length > 0 && storeLocations.length === 0) {
+      setLocations(locationsQuery.data.map((l) => ({ id: l.id, name: l.name })));
+    }
+  }, [locationsQuery.data, storeLocations.length, setLocations]);
+
+  const allLocationIds = useMemo(
+    () => (storeLocations.length > 0 ? storeLocations : apiLocations).map((l) => l.id),
+    [storeLocations, apiLocations]
+  );
+  const activeIds = useMemo(
+    () => activeLocationIdsForApi(selectedLocationIds, allLocationIds),
+    [selectedLocationIds, allLocationIds]
+  );
+
+  const drawerLocations = useMemo(() => {
+    if (activeIds?.length) return apiLocations.filter((l) => activeIds.includes(l.id));
+    return apiLocations;
+  }, [apiLocations, activeIds]);
+
   const appointmentsQuery = trpc.appointments.list.useQuery(
     {
       from: rangeStart,
       to: rangeEnd,
       limit: 200,
+      ...(activeIds?.length ? { locationIds: activeIds } : {}),
     },
     { enabled: isSignedIn }
   );
-  const practitionersQuery = trpc.practitioners.list.useQuery({ limit: 100 }, { enabled: isSignedIn });
+  const practitionersQuery = trpc.practitioners.list.useQuery(
+    { limit: 100, ...(activeIds?.length ? { locationIds: activeIds } : {}) },
+    { enabled: isSignedIn }
+  );
   const staffPatientsQuery = trpc.patients.list.useQuery(
-    { limit: 200 },
+    { limit: 200, ...(activeIds?.length ? { locationIds: activeIds } : {}) },
     { enabled: isSignedIn && staffCanManage && drawerOpen }
   );
-  const locationsQuery = trpc.locations.list.useQuery();
 
   const slotDayStart = useMemo(() => startOfDay(selectedDate), [selectedDate]);
   const slotDayEndExclusive = useMemo(() => addDays(slotDayStart, 1), [slotDayStart]);
@@ -220,7 +250,6 @@ export function AppointmentCalendarModule() {
   });
 
   const practitioners = practitionersQuery.data?.items ?? [];
-  const locations = locationsQuery.data ?? [];
 
   const appointments = useMemo<CalendarAppointment[]>(
     () =>
@@ -271,10 +300,11 @@ export function AppointmentCalendarModule() {
   }, [practitionerId, practitioners, session.practitionerId, session.role]);
 
   useEffect(() => {
-    if (!locationId && locations[0]) {
-      setLocationId(locations[0].id);
+    if (drawerLocations.length === 0) return;
+    if (!locationId || !drawerLocations.some((l) => l.id === locationId)) {
+      setLocationId(drawerLocations[0]!.id);
     }
-  }, [locationId, locations]);
+  }, [drawerLocations, locationId]);
 
   const filteredAppointments = useMemo(() => {
     return appointments.filter((appointment) => {
@@ -320,8 +350,8 @@ export function AppointmentCalendarModule() {
     if (!practitionerId && practitioners[0]) {
       setPractitionerId(practitioners[0].id);
     }
-    if (!locationId && locations[0]) {
-      setLocationId(locations[0].id);
+    if (!locationId && drawerLocations[0]) {
+      setLocationId(drawerLocations[0].id);
     }
   };
 
@@ -783,7 +813,7 @@ export function AppointmentCalendarModule() {
                   }}
                 >
                   <option value="">Select location</option>
-                  {locations.map((location: any) => (
+                  {drawerLocations.map((location: { id: string; name: string }) => (
                     <option key={location.id} value={location.id}>
                       {location.name}
                     </option>

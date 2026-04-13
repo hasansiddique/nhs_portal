@@ -157,6 +157,12 @@ function assertCanReadAppointment(
   throw new TRPCError({ code: 'FORBIDDEN', message: 'You cannot view this appointment' });
 }
 
+function resolveAppointmentLocationIds(input: { locationId?: string; locationIds?: string[] }): string[] | undefined {
+  if (input.locationIds?.length) return input.locationIds;
+  if (input.locationId) return [input.locationId];
+  return undefined;
+}
+
 function buildListWhere(
   user: NonNullable<Context['user']>,
   input: {
@@ -166,6 +172,7 @@ function buildListWhere(
     from?: Date;
     to?: Date;
     locationId?: string;
+    locationIds?: string[];
   }
 ): Record<string, unknown> {
   const where: Record<string, unknown> = {};
@@ -202,8 +209,11 @@ function buildListWhere(
       ...(input.to && { lte: input.to }),
     };
   }
-  if (input.locationId) {
-    slotFilter.locationId = input.locationId;
+  const locIds = resolveAppointmentLocationIds(input);
+  if (locIds?.length === 1) {
+    slotFilter.locationId = locIds[0];
+  } else if (locIds && locIds.length > 1) {
+    slotFilter.locationId = { in: locIds };
   }
   if (Object.keys(slotFilter).length > 0) {
     where.slot = slotFilter;
@@ -223,6 +233,7 @@ export const appointmentsRouter = router({
         to: z.coerce.date().optional(),
         limit: z.number().min(1).max(500).default(50),
         locationId: z.string().optional(),
+        locationIds: z.array(z.string()).optional(),
       })
     )
     .query(async ({ ctx, input }) => {

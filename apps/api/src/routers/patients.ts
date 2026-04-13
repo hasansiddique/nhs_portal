@@ -12,6 +12,7 @@ export const patientsRouter = router({
         cursor: z.string().optional(),
         limit: z.number().min(1).max(500).default(50),
         locationId: z.string().optional(),
+        locationIds: z.array(z.string()).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -30,12 +31,19 @@ export const patientsRouter = router({
           return { items: [], nextCursor: undefined };
         }
         where.OR = [{ locationId: { in: ids } }, { locationId: null }];
-        if (input.locationId) {
-          where.locationId = input.locationId;
+        const requested = input.locationIds?.length ? input.locationIds : input.locationId ? [input.locationId] : [];
+        const filterIds = requested.filter((f) => ids.includes(f));
+        if (filterIds.length === 1) {
+          where.locationId = filterIds[0];
+        } else if (filterIds.length > 1) {
+          where.locationId = { in: filterIds };
         }
       } else if (user.role === UserRole.ADMIN) {
-        if (input.locationId) {
-          where.locationId = input.locationId;
+        const filterIds = input.locationIds?.length ? input.locationIds : input.locationId ? [input.locationId] : [];
+        if (filterIds.length === 1) {
+          where.locationId = filterIds[0];
+        } else if (filterIds.length > 1) {
+          where.locationId = { in: filterIds };
         }
       } else {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Invalid role' });

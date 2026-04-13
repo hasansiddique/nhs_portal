@@ -9,15 +9,20 @@ export const slotsRouter = router({
       z.object({
         practitionerId: z.string().optional(),
         locationId: z.string().optional(),
+        locationIds: z.array(z.string()).optional(),
         from: z.coerce.date(),
         to: z.coerce.date(),
       })
     )
     .query(async ({ ctx, input }) => {
+      const locIds = input.locationIds?.length ? input.locationIds : input.locationId ? [input.locationId] : [];
+      const locationClause =
+        locIds.length > 1 ? { locationId: { in: locIds } } : locIds.length === 1 ? { locationId: locIds[0] } : {};
+
       const slots = await ctx.prisma.slot.findMany({
         where: {
           ...(input.practitionerId && { practitionerId: input.practitionerId }),
-          ...(input.locationId && { locationId: input.locationId }),
+          ...locationClause,
           startAt: { lt: input.to },
           endAt: { gt: input.from },
           appointment: null,

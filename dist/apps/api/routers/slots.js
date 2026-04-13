@@ -11,12 +11,16 @@ exports.slotsRouter = (0, trpc_1.router)({
         .input(zod_1.z.object({
         practitionerId: zod_1.z.string().optional(),
         locationId: zod_1.z.string().optional(),
+        locationIds: zod_1.z.array(zod_1.z.string()).optional(),
         from: zod_1.z.coerce.date(),
         to: zod_1.z.coerce.date(),
     }))
         .query((_a) => tslib_1.__awaiter(void 0, [_a], void 0, function* ({ ctx, input }) {
+        var _b;
+        const locIds = ((_b = input.locationIds) === null || _b === void 0 ? void 0 : _b.length) ? input.locationIds : input.locationId ? [input.locationId] : [];
+        const locationClause = locIds.length > 1 ? { locationId: { in: locIds } } : locIds.length === 1 ? { locationId: locIds[0] } : {};
         const slots = yield ctx.prisma.slot.findMany({
-            where: Object.assign(Object.assign(Object.assign({}, (input.practitionerId && { practitionerId: input.practitionerId })), (input.locationId && { locationId: input.locationId })), { startAt: { lt: input.to }, endAt: { gt: input.from }, appointment: null }),
+            where: Object.assign(Object.assign(Object.assign({}, (input.practitionerId && { practitionerId: input.practitionerId })), locationClause), { startAt: { lt: input.to }, endAt: { gt: input.from }, appointment: null }),
             include: {
                 practitioner: { include: { user: { select: { name: true } } } },
                 location: { select: { id: true, name: true, address: true } },

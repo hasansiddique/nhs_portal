@@ -14,22 +14,28 @@ exports.practitionersRouter = (0, trpc_1.router)({
         cursor: zod_1.z.string().optional(),
         limit: zod_1.z.number().min(1).max(500).default(50),
         locationId: zod_1.z.string().optional(),
+        locationIds: zod_1.z.array(zod_1.z.string()).optional(),
     }))
         .query((_a) => tslib_1.__awaiter(void 0, [_a], void 0, function* ({ ctx, input }) {
         var _b;
         const user = ctx.user;
         const where = {};
+        const requested = ((_b = input.locationIds) === null || _b === void 0 ? void 0 : _b.length) ? input.locationIds : input.locationId ? [input.locationId] : [];
         if (user.role === prisma_client_1.UserRole.PATIENT) {
-            let locFilter = input.locationId;
-            if (!locFilter && user.patientId) {
+            let locIds = requested;
+            if (locIds.length === 0 && user.patientId) {
                 const p = yield ctx.prisma.patient.findUnique({
                     where: { id: user.patientId },
                     select: { locationId: true },
                 });
-                locFilter = (_b = p === null || p === void 0 ? void 0 : p.locationId) !== null && _b !== void 0 ? _b : undefined;
+                if (p === null || p === void 0 ? void 0 : p.locationId)
+                    locIds = [p.locationId];
             }
-            if (locFilter) {
-                where.practitionerLocations = { some: { locationId: locFilter } };
+            if (locIds.length > 1) {
+                where.practitionerLocations = { some: { locationId: { in: locIds } } };
+            }
+            else if (locIds.length === 1) {
+                where.practitionerLocations = { some: { locationId: locIds[0] } };
             }
             else {
                 where.practitionerLocations = { some: {} };
@@ -44,28 +50,42 @@ exports.practitionersRouter = (0, trpc_1.router)({
             if (ids.length === 0) {
                 where.id = user.practitionerId;
             }
-            else if (input.locationId) {
-                where.practitionerLocations = { some: { locationId: input.locationId } };
-            }
             else {
-                where.OR = [
-                    { id: user.practitionerId },
-                    { practitionerLocations: { some: { locationId: { in: ids } } } },
-                ];
+                const filterIds = requested.filter((f) => ids.includes(f));
+                if (filterIds.length > 1) {
+                    where.practitionerLocations = { some: { locationId: { in: filterIds } } };
+                }
+                else if (filterIds.length === 1) {
+                    where.practitionerLocations = { some: { locationId: filterIds[0] } };
+                }
+                else {
+                    where.OR = [
+                        { id: user.practitionerId },
+                        { practitionerLocations: { some: { locationId: { in: ids } } } },
+                    ];
+                }
             }
         }
         else if (user.role === prisma_client_1.UserRole.ADMIN) {
-            if (input.locationId) {
-                where.practitionerLocations = { some: { locationId: input.locationId } };
+            if (requested.length > 1) {
+                where.practitionerLocations = { some: { locationId: { in: requested } } };
+            }
+            else if (requested.length === 1) {
+                where.practitionerLocations = { some: { locationId: requested[0] } };
             }
         }
+        const plWhere = requested.length > 1
+            ? { where: { locationId: { in: requested } } }
+            : requested.length === 1
+                ? { where: { locationId: requested[0] } }
+                : {};
         const items = yield ctx.prisma.practitioner.findMany({
             take: input.limit + 1,
             cursor: input.cursor ? { id: input.cursor } : undefined,
             where,
             include: {
                 user: { select: { id: true, email: true, name: true } },
-                practitionerLocations: Object.assign(Object.assign({}, (input.locationId ? { where: { locationId: input.locationId } } : {})), { include: { location: { select: { id: true, name: true } } } }),
+                practitionerLocations: Object.assign(Object.assign({}, plWhere), { include: { location: { select: { id: true, name: true } } } }),
             },
             orderBy: { createdAt: 'desc' },
         });

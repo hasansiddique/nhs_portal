@@ -1,11 +1,32 @@
 import { trpc } from '@nhs-portal/client-api';
 import { format, addDays, startOfDay } from 'date-fns';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { activeLocationIdsForApi, useLocationStore } from '@your-props/client/utils';
 
 export default function DashboardSlots() {
   const [from] = useState(() => startOfDay(new Date()));
   const [to] = useState(() => addDays(startOfDay(new Date()), 14));
-  const { data: slots, isLoading } = trpc.slots.available.useQuery({ from, to });
+  const storeLocations = useLocationStore((s) => s.locations);
+  const selectedLocationIds = useLocationStore((s) => s.selectedLocationIds);
+  const setLocations = useLocationStore((s) => s.setLocations);
+  const locationsQuery = trpc.locations.list.useQuery();
+  const allLocationIds = useMemo(() => storeLocations.map((l) => l.id), [storeLocations]);
+  const activeIds = useMemo(
+    () => activeLocationIdsForApi(selectedLocationIds, allLocationIds),
+    [selectedLocationIds, allLocationIds]
+  );
+
+  useEffect(() => {
+    if (locationsQuery.data && locationsQuery.data.length > 0 && storeLocations.length === 0) {
+      setLocations(locationsQuery.data.map((l) => ({ id: l.id, name: l.name })));
+    }
+  }, [locationsQuery.data, storeLocations.length, setLocations]);
+
+  const { data: slots, isLoading } = trpc.slots.available.useQuery({
+    from,
+    to,
+    ...(activeIds?.length ? { locationIds: activeIds } : {}),
+  });
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">

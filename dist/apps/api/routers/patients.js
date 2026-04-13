@@ -14,8 +14,10 @@ exports.patientsRouter = (0, trpc_1.router)({
         cursor: zod_1.z.string().optional(),
         limit: zod_1.z.number().min(1).max(500).default(50),
         locationId: zod_1.z.string().optional(),
+        locationIds: zod_1.z.array(zod_1.z.string()).optional(),
     }))
         .query((_a) => tslib_1.__awaiter(void 0, [_a], void 0, function* ({ ctx, input }) {
+        var _b, _c;
         const user = ctx.user;
         const where = {};
         if (user.role === prisma_client_1.UserRole.PATIENT) {
@@ -31,13 +33,22 @@ exports.patientsRouter = (0, trpc_1.router)({
                 return { items: [], nextCursor: undefined };
             }
             where.OR = [{ locationId: { in: ids } }, { locationId: null }];
-            if (input.locationId) {
-                where.locationId = input.locationId;
+            const requested = ((_b = input.locationIds) === null || _b === void 0 ? void 0 : _b.length) ? input.locationIds : input.locationId ? [input.locationId] : [];
+            const filterIds = requested.filter((f) => ids.includes(f));
+            if (filterIds.length === 1) {
+                where.locationId = filterIds[0];
+            }
+            else if (filterIds.length > 1) {
+                where.locationId = { in: filterIds };
             }
         }
         else if (user.role === prisma_client_1.UserRole.ADMIN) {
-            if (input.locationId) {
-                where.locationId = input.locationId;
+            const filterIds = ((_c = input.locationIds) === null || _c === void 0 ? void 0 : _c.length) ? input.locationIds : input.locationId ? [input.locationId] : [];
+            if (filterIds.length === 1) {
+                where.locationId = filterIds[0];
+            }
+            else if (filterIds.length > 1) {
+                where.locationId = { in: filterIds };
             }
         }
         else {

@@ -13,8 +13,14 @@ function readSessionUser(): { role?: string; homeLocationId?: string; workLocati
 }
 
 export const LocationSelector: React.FC = () => {
-  const { locations, selectedLocationId, setLocations, setSelectedLocationId } =
-    useLocationStore();
+  const {
+    locations,
+    selectedLocationIds,
+    setLocations,
+    setSelectedLocationIds,
+    toggleLocationId,
+    selectAllLocations,
+  } = useLocationStore();
   const locationsQuery = trpc.locations.list.useQuery();
   const session = readSessionUser();
   const patientHomeApplied = useRef(false);
@@ -28,8 +34,8 @@ export const LocationSelector: React.FC = () => {
   useEffect(() => {
     if (session.role !== 'PATIENT' || !session.homeLocationId || patientHomeApplied.current) return;
     patientHomeApplied.current = true;
-    setSelectedLocationId(session.homeLocationId);
-  }, [session.role, session.homeLocationId, setSelectedLocationId]);
+    setSelectedLocationIds([session.homeLocationId]);
+  }, [session.role, session.homeLocationId, setSelectedLocationIds]);
 
   const isPatient = session.role === 'PATIENT';
   const isPractitioner = session.role === 'PRACTITIONER';
@@ -42,10 +48,18 @@ export const LocationSelector: React.FC = () => {
     return locations;
   }, [locations, isPractitioner, workIds]);
 
+  const allSelected =
+    selectedLocationIds === 'all' ||
+    (Array.isArray(selectedLocationIds) &&
+      visibleLocations.length > 0 &&
+      selectedLocationIds.length === visibleLocations.length);
+
   const currentLabel =
-    selectedLocationId === 'all'
+    selectedLocationIds === 'all'
       ? 'All locations'
-      : locations.find((l) => l.id === selectedLocationId)?.name ?? 'All locations';
+      : selectedLocationIds.length === 1
+        ? locations.find((l) => l.id === selectedLocationIds[0])?.name ?? 'Location'
+        : `${selectedLocationIds.length} locations`;
 
   return (
     <div className="mb-[20px]">
@@ -60,29 +74,59 @@ export const LocationSelector: React.FC = () => {
         </Dropdown.Toggle>
 
         {!isPatient && (
-          <Dropdown.Menu className="!top-[18px] w-full text-base">
-            {(!isPractitioner || workIds.length === 0) && visibleLocations.length > 0 && (
-              <Dropdown.Item
-                key="all"
-                className="py-2.5 text-base"
-                onClick={() => {
-                  setSelectedLocationId('all');
-                }}
-              >
-                All locations
-              </Dropdown.Item>
+          <Dropdown.Menu className="!top-[18px] max-h-[min(70vh,360px)] w-full overflow-y-auto text-base">
+            {visibleLocations.length > 0 && (
+              <>
+                <Dropdown.Header className="text-xs uppercase text-[#C5B6B3]">Quick</Dropdown.Header>
+                <Dropdown.Item
+                  key="all"
+                  className="py-2.5 text-base"
+                  onClick={() => {
+                    selectAllLocations();
+                  }}
+                >
+                  All locations
+                </Dropdown.Item>
+                <Dropdown.Divider />
+                <Dropdown.Header className="text-xs uppercase text-[#C5B6B3]">Clinics</Dropdown.Header>
+                <div className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  <label className="mb-2 flex cursor-pointer items-center gap-2 text-sm text-[#EBEBEB]">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-[#EF6A3B]"
+                      checked={allSelected}
+                      onChange={() => {
+                        if (allSelected) {
+                          setSelectedLocationIds([visibleLocations[0]!.id]);
+                        } else {
+                          selectAllLocations();
+                        }
+                      }}
+                    />
+                    Select all
+                  </label>
+                  {visibleLocations.map((loc) => {
+                    const checked =
+                      selectedLocationIds === 'all' ||
+                      (Array.isArray(selectedLocationIds) && selectedLocationIds.includes(loc.id));
+                    return (
+                      <label
+                        key={loc.id}
+                        className="flex cursor-pointer items-center gap-2 py-1.5 text-sm text-[#EBEBEB]"
+                      >
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-[#EF6A3B]"
+                          checked={checked}
+                          onChange={() => toggleLocationId(loc.id)}
+                        />
+                        <span className="truncate">{loc.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
             )}
-            {(isPractitioner ? visibleLocations : locations).map((loc) => (
-              <Dropdown.Item
-                key={loc.id}
-                className="py-2.5 text-base"
-                onClick={() => {
-                  setSelectedLocationId(loc.id);
-                }}
-              >
-                {loc.name}
-              </Dropdown.Item>
-            ))}
             {locations.length === 0 && (
               <Dropdown.Item disabled className="py-2.5 text-base">
                 No locations configured

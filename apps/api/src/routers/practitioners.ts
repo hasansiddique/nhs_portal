@@ -13,23 +13,27 @@ export const practitionersRouter = router({
         cursor: z.string().optional(),
         limit: z.number().min(1).max(500).default(50),
         locationId: z.string().optional(),
+        locationIds: z.array(z.string()).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const user = ctx.user!;
       const where: Record<string, unknown> = {};
+      const requested = input.locationIds?.length ? input.locationIds : input.locationId ? [input.locationId] : [];
 
       if (user.role === UserRole.PATIENT) {
-        let locFilter = input.locationId;
-        if (!locFilter && user.patientId) {
+        let locIds = requested;
+        if (locIds.length === 0 && user.patientId) {
           const p = await ctx.prisma.patient.findUnique({
             where: { id: user.patientId },
             select: { locationId: true },
           });
-          locFilter = p?.locationId ?? undefined;
+          if (p?.locationId) locIds = [p.locationId];
         }
-        if (locFilter) {
-          where.practitionerLocations = { some: { locationId: locFilter } };
+        if (locIds.length > 1) {
+          where.practitionerLocations = { some: { locationId: { in: locIds } } };
+        } else if (locIds.length === 1) {
+          where.practitionerLocations = { some: { locationId: locIds[0] } };
         } else {
           where.practitionerLocations = { some: {} };
         }
@@ -41,19 +45,33 @@ export const practitionersRouter = router({
         const ids = locs.map((l) => l.locationId);
         if (ids.length === 0) {
           where.id = user.practitionerId;
-        } else if (input.locationId) {
-          where.practitionerLocations = { some: { locationId: input.locationId } };
         } else {
-          where.OR = [
-            { id: user.practitionerId },
-            { practitionerLocations: { some: { locationId: { in: ids } } } },
-          ];
+          const filterIds = requested.filter((f) => ids.includes(f));
+          if (filterIds.length > 1) {
+            where.practitionerLocations = { some: { locationId: { in: filterIds } } };
+          } else if (filterIds.length === 1) {
+            where.practitionerLocations = { some: { locationId: filterIds[0] } };
+          } else {
+            where.OR = [
+              { id: user.practitionerId },
+              { practitionerLocations: { some: { locationId: { in: ids } } } },
+            ];
+          }
         }
       } else if (user.role === UserRole.ADMIN) {
-        if (input.locationId) {
-          where.practitionerLocations = { some: { locationId: input.locationId } };
+        if (requested.length > 1) {
+          where.practitionerLocations = { some: { locationId: { in: requested } } };
+        } else if (requested.length === 1) {
+          where.practitionerLocations = { some: { locationId: requested[0] } };
         }
       }
+
+      const plWhere =
+        requested.length > 1
+          ? { where: { locationId: { in: requested } } }
+          : requested.length === 1
+            ? { where: { locationId: requested[0] } }
+            : {};
 
       const items = await ctx.prisma.practitioner.findMany({
         take: input.limit + 1,
@@ -62,7 +80,7 @@ export const practitionersRouter = router({
         include: {
           user: { select: { id: true, email: true, name: true } },
           practitionerLocations: {
-            ...(input.locationId ? { where: { locationId: input.locationId } } : {}),
+            ...plWhere,
             include: { location: { select: { id: true, name: true } } },
           },
         },

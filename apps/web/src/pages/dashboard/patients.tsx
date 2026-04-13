@@ -4,18 +4,24 @@ import { format } from 'date-fns';
 import { ChevronRight } from 'lucide-react';
 import type { inferRouterOutputs } from '@trpc/server';
 import { trpc, type AppRouter } from '@nhs-portal/client-api';
-import { useLocationStore } from '@your-props/client/utils';
+import { activeLocationIdsForApi, useLocationStore } from '@your-props/client/utils';
 
 const ACCENT_ORANGE = '#ef6b3b';
 
 type PatientRow = inferRouterOutputs<AppRouter>['patients']['list']['items'][number];
 
 export default function DashboardPatients() {
-  const selectedLocationId = useLocationStore((s) => s.selectedLocationId);
+  const locations = useLocationStore((s) => s.locations);
+  const selectedLocationIds = useLocationStore((s) => s.selectedLocationIds);
+  const allLocationIds = useMemo(() => locations.map((l) => l.id), [locations]);
+  const activeIds = useMemo(
+    () => activeLocationIdsForApi(selectedLocationIds, allLocationIds),
+    [selectedLocationIds, allLocationIds]
+  );
 
   const { data, isLoading } = trpc.patients.list.useQuery({
     limit: 250,
-    ...(selectedLocationId && selectedLocationId !== 'all' ? { locationId: selectedLocationId } : {}),
+    ...(activeIds?.length ? { locationIds: activeIds } : {}),
   });
 
   const items = data?.items ?? [];
@@ -23,14 +29,18 @@ export default function DashboardPatients() {
   const sections = useMemo(() => {
     if (!items.length) return [] as { locationId: string; locationName: string; rows: PatientRow[] }[];
 
-    if (selectedLocationId && selectedLocationId !== 'all') {
-      const name = items[0]?.location?.name ?? 'Selected location';
-      return [{ locationId: selectedLocationId, locationName: name, rows: items }];
+    if (activeIds?.length === 1) {
+      const id = activeIds[0]!;
+      const name = items[0]?.location?.name ?? locations.find((l) => l.id === id)?.name ?? 'Selected location';
+      return [{ locationId: id, locationName: name, rows: items }];
     }
 
     const map = new Map<string, { locationName: string; rows: PatientRow[] }>();
     for (const p of items) {
       const id = p.location?.id ?? '__none__';
+      if (activeIds && activeIds.length > 0) {
+        if (id === '__none__' || !activeIds.includes(id)) continue;
+      }
       const locationName = p.location?.name ?? 'No location on file';
       if (!map.has(id)) {
         map.set(id, { locationName, rows: [] });
@@ -47,7 +57,7 @@ export default function DashboardPatients() {
       locationName: v.locationName,
       rows: v.rows,
     }));
-  }, [items, selectedLocationId]);
+  }, [items, activeIds, locations]);
 
   if (isLoading) {
     return (
@@ -65,7 +75,7 @@ export default function DashboardPatients() {
         </p>
         <h1 className="mt-1 text-xl font-bold text-white">Patients</h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--primary-color4)' }}>
-          Grouped by registered clinic. Use the sidebar to filter by a single location.
+          Grouped by registered clinic. Use the header or sidebar to filter one or more locations.
         </p>
       </div>
 

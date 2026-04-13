@@ -146,6 +146,14 @@ function assertCanReadAppointment(user, row) {
     }
     throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You cannot view this appointment' });
 }
+function resolveAppointmentLocationIds(input) {
+    var _a;
+    if ((_a = input.locationIds) === null || _a === void 0 ? void 0 : _a.length)
+        return input.locationIds;
+    if (input.locationId)
+        return [input.locationId];
+    return undefined;
+}
 function buildListWhere(user, input) {
     const where = {};
     if (user.role === prisma_client_1.UserRole.PATIENT) {
@@ -179,8 +187,12 @@ function buildListWhere(user, input) {
     if (input.from || input.to) {
         slotFilter.startAt = Object.assign(Object.assign({}, (input.from && { gte: input.from })), (input.to && { lte: input.to }));
     }
-    if (input.locationId) {
-        slotFilter.locationId = input.locationId;
+    const locIds = resolveAppointmentLocationIds(input);
+    if ((locIds === null || locIds === void 0 ? void 0 : locIds.length) === 1) {
+        slotFilter.locationId = locIds[0];
+    }
+    else if (locIds && locIds.length > 1) {
+        slotFilter.locationId = { in: locIds };
     }
     if (Object.keys(slotFilter).length > 0) {
         where.slot = slotFilter;
@@ -197,6 +209,7 @@ exports.appointmentsRouter = (0, trpc_1.router)({
         to: zod_1.z.coerce.date().optional(),
         limit: zod_1.z.number().min(1).max(500).default(50),
         locationId: zod_1.z.string().optional(),
+        locationIds: zod_1.z.array(zod_1.z.string()).optional(),
     }))
         .query((_a) => tslib_1.__awaiter(void 0, [_a], void 0, function* ({ ctx, input }) {
         const user = ctx.user;

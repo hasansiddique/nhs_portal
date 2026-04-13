@@ -1,1 +1,0 @@
-import{j as e,$ as t}from"./index-Bb86EjjH.js";const a=()=>e.jsx("div",{className:"themesflat-container",children:e.jsx("div",{className:"py-10 pt-40",children:e.jsx(t,{headingText:"404",subText:"Page not found"})})});export{a as default};

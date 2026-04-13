@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { inferRouterOutputs } from '@trpc/server';
 import { ChevronRight } from 'lucide-react';
 import { trpc, type AppRouter } from '@nhs-portal/client-api';
-import { useLocationStore } from '@your-props/client/utils';
+import { activeLocationIdsForApi, useLocationStore } from '@your-props/client/utils';
 
 const ACCENT_ORANGE = '#ef6b3b';
 
@@ -23,17 +23,26 @@ function initials(label: string): string {
 }
 
 export default function DashboardDoctors() {
-  const selectedLocationId = useLocationStore((s) => s.selectedLocationId);
+  const storeLocations = useLocationStore((s) => s.locations);
+  const selectedLocationIds = useLocationStore((s) => s.selectedLocationIds);
 
   const { data: locationsData } = trpc.locations.list.useQuery();
   const locations = useMemo(
     () => [...(locationsData ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
     [locationsData]
   );
+  const allLocationIds = useMemo(
+    () => (storeLocations.length > 0 ? storeLocations : locations).map((l) => l.id),
+    [storeLocations, locations]
+  );
+  const activeIds = useMemo(
+    () => activeLocationIdsForApi(selectedLocationIds, allLocationIds),
+    [selectedLocationIds, allLocationIds]
+  );
 
   const { data, isLoading } = trpc.practitioners.list.useQuery({
     limit: 250,
-    ...(selectedLocationId && selectedLocationId !== 'all' ? { locationId: selectedLocationId } : {}),
+    ...(activeIds?.length ? { locationIds: activeIds } : {}),
   });
 
   const items = data?.items ?? [];
@@ -41,19 +50,23 @@ export default function DashboardDoctors() {
   const sections = useMemo(() => {
     if (!items.length) return [] as { locationId: string; locationName: string; rows: DoctorRow[] }[];
 
-    if (selectedLocationId && selectedLocationId !== 'all') {
-      const loc = locations.find((l) => l.id === selectedLocationId);
+    if (activeIds?.length === 1) {
+      const id = activeIds[0]!;
+      const loc = locations.find((l) => l.id === id);
       return [
         {
-          locationId: selectedLocationId,
+          locationId: id,
           locationName: loc?.name ?? 'Selected location',
           rows: items,
         },
       ];
     }
 
+    const locsToGroup =
+      activeIds && activeIds.length > 0 ? locations.filter((l) => activeIds.includes(l.id)) : locations;
+
     const out: { locationId: string; locationName: string; rows: DoctorRow[] }[] = [];
-    for (const loc of locations) {
+    for (const loc of locsToGroup) {
       const rows = items.filter((row) =>
         row.practitionerLocations?.some((pl: PractitionerLocationRow) => pl.locationId === loc.id)
       );
@@ -62,7 +75,7 @@ export default function DashboardDoctors() {
       }
     }
     return out;
-  }, [items, locations, selectedLocationId]);
+  }, [items, locations, activeIds]);
 
   if (isLoading) {
     return (
@@ -107,7 +120,7 @@ export default function DashboardDoctors() {
                     row.practitionerLocations?.map((pl: PractitionerLocationRow) => pl.location?.name).filter(Boolean) ??
                     [];
                   const locLine =
-                    selectedLocationId && selectedLocationId !== 'all'
+                    activeIds?.length === 1
                       ? section.locationName
                       : locs.length > 0
                         ? locs.join(' · ')

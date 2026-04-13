@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie';
 import { isEmpty } from 'lodash';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 
 import {
   useSidebarActions,
@@ -17,7 +17,6 @@ import {
   SvgCart,
   ProfileIcon,
   MessagesIcon,
-  SvgSearchIcon,
   BellIcon,
   DashboardIcon,
   LogoutIcon,
@@ -35,7 +34,7 @@ import { CartContent } from '../../dashboard/checkout/side-panel/CartContent';
 import { Dropdown } from 'react-bootstrap';
 
 import { NotificationDropDown } from './NotificationDropDown';
-import { SearchProps } from './search/search-input';
+import { HeaderLocationFilter } from './HeaderLocationFilter';
 
 export const Header = () => {
   const { pathname } = useLocation();
@@ -46,15 +45,6 @@ export const Header = () => {
   const { notifications, unreadNotificationsCount, isInitialized } =
     useNotificationState();
   const { fetchNotifications } = useNotificationActions();
-
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const query = searchParams.get('q');
-
-    if (!query) {
-      setSearchValue('');
-    }
-  }, [location.search]);
 
   const user = JSON.parse(localStorage.getItem('user') as string);
   const userId = user?.id;
@@ -100,7 +90,6 @@ export const Header = () => {
   const menuLeft = useRef(null);
   const btnToggle = useRef(null);
   const [isNavOpen, setIsNavOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
 
   const [animateNotification, setAnimateNotification] = useState(false);
   const [animateCart, setAnimateCart] = useState(false);
@@ -161,31 +150,6 @@ export const Header = () => {
     if (isActive) setActive(!isActive);
   }, [isActive]);
 
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLInputElement>) => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      const searchValue = event.target?.value.trim();
-      const searchParams = new URLSearchParams(location.search);
-
-      if (event.key === 'Enter') {
-        searchParams.set('q', searchValue);
-        navigate(`/props?${searchParams.toString()}`);
-      } else if (searchValue === '') {
-        searchParams.delete('q');
-        navigate(`/props?${searchParams.toString()}`);
-      }
-    },
-    [navigate, location]
-  );
-
-  const handleClearSearch = () => {
-    setSearchValue('');
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.delete('q');
-    navigate(`/props?${searchParams.toString()}`);
-  };
-
   const logoutUser = () => {
     localStorage.clear();
     sessionStorage.clear();
@@ -228,8 +192,8 @@ export const Header = () => {
                   <span></span>
                 </div>
 
-                {/* Search bar */}
-                <SearchProps handleClearSearch={handleClearSearch} />
+                {/* Location filter (replaces legacy search) */}
+                <HeaderLocationFilter />
                 {/*<div className="w-[513px] h-full items-center relative hidden xl:flex">
                   <input
                     required
