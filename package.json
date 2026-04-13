@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {
     "postinstall": "prisma generate --schema=apps/api/prisma/schema.prisma",
+    "dev": "nx run-many -t serve -p api,web --parallel=2 --output-style=stream",
     "start:web": "nx serve web",
     "start:api": "nx serve api",
     "build:web": "nx build web",

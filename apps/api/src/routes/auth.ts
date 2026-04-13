@@ -110,8 +110,16 @@ export async function authLogin(req: Request, res: Response) {
       token,
       user: toUserPayload(user),
     });
-  } catch (e) {
+  } catch (e: unknown) {
     console.error('authLogin', e);
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/Can't reach database server|P1001|ECONNREFUSED|ENOTFOUND|database server/i.test(msg)) {
+      sendError(res, 503, {
+        error:
+          'Database unreachable. Set DATABASE_URL in a `.env` file at the repository root (or in your environment), ensure PostgreSQL is running, then restart the API.',
+      });
+      return;
+    }
     sendError(res, 500, { error: 'Login failed' });
   }
 }

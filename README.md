@@ -80,15 +80,13 @@ If unset, the app may use a different base URL; auth (login/signup/forgot passwo
 
 ## Demo accounts (after `pnpm prisma:seed`)
 
-All use password **`Demo2026!`** (seed also sets this on the first demo doctor account).
+| Role | Name | Email | Password | What they can do |
+|------|------|-------|----------|-------------------|
+| **Admin** | Demo Admin | `admin@nhs-demo.local` | `Demo2026!` | Full directory, booked list, calendar, **Add patient** / **Add doctor** on the dashboard, all locations in the location filter. |
+| **Doctor** (practitioner) | Dr Sarah Mitchell | `sarah.mitchell@nhs-demo.local` | `Demo2026!` | Own appointments, patients at their clinics, calendar (+Add) with **patient** selection and status/notes updates on an event. |
+| **Patient** | Demo Patient | `patient@nhs-demo.local` | `Demo2026!` | **My appointments**, **Book appointment**; location filter is fixed to their registered clinic; cancel own future appointments from the calendar detail panel. |
 
-| Role | Email | What they can do in the app |
-|------|--------|------------------------------|
-| **Admin** | `admin@nhs-demo.local` | Full directory, booked list, calendar, **Add patient** / **Add doctor** (dashboard), all locations in the location filter. |
-| **Doctor** | `sarah.mitchell@nhs-demo.local` | Own appointments, patients at their clinics, calendar (+Add) with **patient** selection and status/notes updates on an event. |
-| **Patient** | `patient@nhs-demo.local` | **My appointments**, **Book appointment**; location filter is fixed to their registered clinic; they can only cancel their own future appointments from the calendar detail panel. |
-
-Other seeded clinicians keep email `*.@nhs-demo.local` with password **`SeedPractitioner!`** unless overwritten by the seed step above.
+Additional seeded clinicians (directory demo) use emails ending in **`@nhs-demo.local`** with password **`SeedPractitioner!`** (unchanged unless you edit the seed).
 
 ## Roles and access
 
@@ -122,6 +120,22 @@ The API exposes REST endpoints used by the existing sign-in/sign-up/forgot-passw
 | POST | `/check-username` | `username` | Returns `{ status, message }` for signup validation. |
 
 Set **JWT_SECRET** in `apps/api/.env` (or root `.env`); default is a dev-only value.
+
+## Troubleshooting: `POST /auth/login` returns **500** (Windows or any OS)
+
+The handler only returns **500** when an **unexpected error** is thrown (usually **before** a wrong password is detected). Typical causes and fixes:
+
+| Cause | What to check | Fix |
+|--------|----------------|-----|
+| **No database URL for the running API** | The server process did not see `DATABASE_URL`. | Put `DATABASE_URL=postgresql://...` in a **`.env` file at the repo root** (same folder as `package.json`). The API loads it on startup via `dotenv` in `main.ts`. Restart `pnpm start:api`. |
+| **PostgreSQL not running or wrong host/port** | Prisma cannot connect. | Start PostgreSQL (Services on Windows). Use `localhost` or `127.0.0.1`. Check the server terminal for `P1001` / “Can’t reach database server”. |
+| **`.env` line endings or stray characters** | Copy/paste from docs added invisible characters. | Save `.env` as UTF-8; use **forward slashes** in URLs; no quotes around the whole URL unless needed. |
+| **Database exists but not migrated** | Connection works but tables missing. | Run migrations: `pnpm exec prisma migrate dev --schema=apps/api/prisma/schema.prisma`. |
+| **User not seeded** | Valid DB but no rows in `User`. | Run `pnpm prisma:seed` after migrations. |
+
+If the response is **503** with a “Database unreachable” message, the API recognized a **connection** failure—fix `DATABASE_URL` and PostgreSQL first.
+
+**Still 500?** Read the **API terminal** line logged as `authLogin` (full stack). Common extra causes: corporate SSL proxy on DB URL, or firewall blocking port `5432`.
 
 ## Notes
 
