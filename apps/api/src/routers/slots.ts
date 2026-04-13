@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { router, publicProcedure, protectedProcedure } from '../trpc/trpc';
+import { TRPCError } from '@trpc/server';
+import { UserRole } from '@prisma/client';
+import { router, publicProcedure, protectedProcedure, staffProcedure } from '../trpc/trpc';
 
 export const slotsRouter = router({
   available: publicProcedure
@@ -16,10 +18,9 @@ export const slotsRouter = router({
         where: {
           ...(input.practitionerId && { practitionerId: input.practitionerId }),
           ...(input.locationId && { locationId: input.locationId }),
-          // Overlap with [from, to) so same-calendar-day queries work even if `to` is midnight next day.
           startAt: { lt: input.to },
           endAt: { gt: input.from },
-          appointment: null, // only slots not yet booked
+          appointment: null,
         },
         include: {
           practitioner: { include: { user: { select: { name: true } } } },
@@ -30,7 +31,7 @@ export const slotsRouter = router({
       return slots;
     }),
 
-  create: protectedProcedure
+  create: staffProcedure
     .input(
       z.object({
         practitionerId: z.string(),
@@ -40,6 +41,19 @@ export const slotsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const user = ctx.user!;
+      if (user.role === UserRole.PRACTITIONER) {
+        if (user.practitionerId !== input.practitionerId) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'You can only create slots for yourself' });
+        }
+        const ok = await ctx.prisma.practitionerLocation.findFirst({
+          where: { practitionerId: user.practitionerId!, locationId: input.locationId },
+        });
+        if (!ok) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not work at this location' });
+        }
+      }
+
       return ctx.prisma.slot.create({
         data: {
           practitionerId: input.practitionerId,

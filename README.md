@@ -78,14 +78,33 @@ If unset, the app may use a different base URL; auth (login/signup/forgot passwo
 | `pnpm prisma:generate` | `nx run api:prisma-generate` | Generate Prisma client |
 | `pnpm prisma:migrate`  | `nx run api:prisma-migrate`  | Run migrations (dev)   |
 
-## tRPC procedures
+## Demo accounts (after `pnpm prisma:seed`)
+
+All use password **`Demo2026!`** (seed also sets this on the first demo doctor account).
+
+| Role | Email | What they can do in the app |
+|------|--------|------------------------------|
+| **Admin** | `admin@nhs-demo.local` | Full directory, booked list, calendar, **Add patient** / **Add doctor** (dashboard), all locations in the location filter. |
+| **Doctor** | `sarah.mitchell@nhs-demo.local` | Own appointments, patients at their clinics, calendar (+Add) with **patient** selection and status/notes updates on an event. |
+| **Patient** | `patient@nhs-demo.local` | **My appointments**, **Book appointment**; location filter is fixed to their registered clinic; they can only cancel their own future appointments from the calendar detail panel. |
+
+Other seeded clinicians keep email `*.@nhs-demo.local` with password **`SeedPractitioner!`** unless overwritten by the seed step above.
+
+## Roles and access
+
+- **JWT** includes `role`, and when applicable `patientId` / `practitionerId` for faster checks.
+- **Patients** see only their appointments and book only for themselves; dashboard sidebar is limited to my appointments + book + settings.
+- **Practitioners** see appointments where they are the clinician; patient lists are limited to clinics they work at; they cannot open the admin “add user” flows.
+- **Admins** see global lists (optionally filtered by location) and can register new patients or clinicians via the dashboard.
+
+## tRPC procedures (high level)
 
 - **auth** – signIn, me
-- **patients** – list, byId, create
-- **practitioners** – list, byId
+- **patients** – list, byId (authenticated, scoped by role); **adminRegister** (admin); **create** (admin, legacy user-linked create)
+- **practitioners** – list, byId (authenticated); **adminRegister** (admin)
 - **locations** – list, byId
-- **slots** – available (query), create (protected)
-- **appointments** – list, byId, create (protected), updateStatus (protected)
+- **slots** – available (public); **create** (admin or practitioner at own locations)
+- **appointments** – list, byId, create, updateStatus (authenticated; rules per role); **createFromCalendar** (admin or practitioner)
 
 ## REST Auth API
 
@@ -106,6 +125,7 @@ Set **JWT_SECRET** in `apps/api/.env` (or root `.env`); default is a dev-only va
 
 ## Notes
 
-- **Auth**: Login/signup use the REST auth above; JWT is returned and stored (cookie + localStorage). Protected tRPC procedures can read `ctx.user` if you pass the token (e.g. in a header) and resolve it in `createContext`.
-- **Booking**: The “Book appointment” page uses a placeholder `patientId`; in production this should come from the logged-in patient or staff selection.
-- **Seed data**: Add a seed script in `apps/api/prisma/seed.ts` and run with `prisma db seed` to create sample users, practitioners, locations, and slots.
+- **Prisma / Windows / `PrismaClient` missing (TS2305)**: Run `pnpm prisma:generate` (or `pnpm install`, which runs `postinstall` → `prisma generate`). `nx serve api` and `nx build api` depend on `api:prisma-generate` so the client is generated before TypeScript runs.
+- **Auth**: Login uses REST `/auth/login`; JWT is stored with a `Bearer` prefix (cookie + localStorage `user` payload includes `role`, `patientId`, `practitionerId`, `homeLocationId`, `workLocationIds` where applicable). tRPC sends `Authorization: Bearer <token>`.
+- **Booking**: Staff choose a **patient** in the calendar drawer; patients book without that field (always self).
+- **Seed**: `apps/api/prisma/seed.ts` — run with `pnpm prisma:seed` (see root `package.json`) after migrations.

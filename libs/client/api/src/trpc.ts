@@ -17,8 +17,10 @@ export const trpcClient = trpc.createClient({
     httpBatchLink({
       url: `${getBaseUrl()}/trpc`,
       headers() {
-        const token = typeof window !== 'undefined' ? Cookies.get('token') : undefined;
-        return token ? { authorization: token } : {};
+        const raw = typeof window !== 'undefined' ? Cookies.get('token') : undefined;
+        if (!raw) return {};
+        const authorization = raw.startsWith('Bearer ') ? raw : `Bearer ${raw}`;
+        return { authorization };
       },
     }),
   ],

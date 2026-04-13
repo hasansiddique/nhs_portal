@@ -9,7 +9,8 @@ const createContext = ({ req, res }) => {
     let user = req.user;
     if (!user) {
         const authHeader = req.headers.authorization;
-        const token = (authHeader === null || authHeader === void 0 ? void 0 : authHeader.startsWith('Bearer ')) ? authHeader.slice(7) : undefined;
+        const raw = (authHeader === null || authHeader === void 0 ? void 0 : authHeader.startsWith('Bearer ')) ? authHeader.slice(7) : authHeader;
+        const token = raw === null || raw === void 0 ? void 0 : raw.trim();
         if (token) {
             try {
                 const payload = jsonwebtoken_1.default.verify(token, JWT_SECRET);
@@ -18,6 +19,8 @@ const createContext = ({ req, res }) => {
                         id: String(payload.sub),
                         email: String(payload.email),
                         role: typeof payload.role === 'string' ? payload.role : 'PATIENT',
+                        patientId: typeof payload.patientId === 'string' ? payload.patientId : undefined,
+                        practitionerId: typeof payload.practitionerId === 'string' ? payload.practitionerId : undefined,
                     };
                 }
             }
