@@ -1,5 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../generated/prisma-client';
 import type { Context } from './context';
 
 const t = initTRPC.context<Context>().create();

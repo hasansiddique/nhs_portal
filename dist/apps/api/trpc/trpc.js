@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.patientProcedure = exports.staffProcedure = exports.adminProcedure = exports.protectedProcedure = exports.publicProcedure = exports.router = void 0;
 const server_1 = require("@trpc/server");
-const client_1 = require("@prisma/client");
+const prisma_client_1 = require("../generated/prisma-client");
 const t = server_1.initTRPC.context().create();
 exports.router = t.router;
 exports.publicProcedure = t.procedure;
@@ -29,7 +29,7 @@ function requireRole(allowed) {
         });
     });
 }
-exports.adminProcedure = exports.protectedProcedure.use(requireRole([client_1.UserRole.ADMIN]));
-exports.staffProcedure = exports.protectedProcedure.use(requireRole([client_1.UserRole.ADMIN, client_1.UserRole.PRACTITIONER]));
-exports.patientProcedure = exports.protectedProcedure.use(requireRole([client_1.UserRole.PATIENT]));
+exports.adminProcedure = exports.protectedProcedure.use(requireRole([prisma_client_1.UserRole.ADMIN]));
+exports.staffProcedure = exports.protectedProcedure.use(requireRole([prisma_client_1.UserRole.ADMIN, prisma_client_1.UserRole.PRACTITIONER]));
+exports.patientProcedure = exports.protectedProcedure.use(requireRole([prisma_client_1.UserRole.PATIENT]));
 //# sourceMappingURL=trpc.js.map

@@ -4,6 +4,9 @@
 # Editor-based HTTP Client requests
 /httpRequests/
 node_modules
+
+# Prisma client (generated; path set in apps/api/prisma/schema.prisma)
+apps/api/src/generated/
 # Nx
 .nx/cache
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { UserRole, type AppointmentStatus } from '@prisma/client';
+import { UserRole, type AppointmentStatus } from '../generated/prisma-client';
 import { router, protectedProcedure, staffProcedure } from '../trpc/trpc';
 import type { Context } from '../trpc/context';
 

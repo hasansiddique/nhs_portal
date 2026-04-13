@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { TRPCError } from '@trpc/server';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../generated/prisma-client';
 import { router, protectedProcedure, adminProcedure } from '../trpc/trpc';
 const SALT_ROUNDS = 10;
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../generated/prisma-client';
 import { router, publicProcedure, protectedProcedure, staffProcedure } from '../trpc/trpc';
 
 export const slotsRouter = router({

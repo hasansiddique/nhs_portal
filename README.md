@@ -126,6 +126,7 @@ Set **JWT_SECRET** in `apps/api/.env` (or root `.env`); default is a dev-only va
 ## Notes
 
 - **Prisma / Windows / `PrismaClient` missing (TS2305)**: Run `pnpm prisma:generate` (or `pnpm install`, which runs `postinstall` → `prisma generate`). `nx serve api` and `nx build api` depend on `api:prisma-generate` so the client is generated before TypeScript runs.
+- **Prisma / Windows / `EPERM` renaming `query_engine-windows.dll.node`**: Usually a **file lock** (another terminal still running `nx serve api`, Prisma Studio, or your IDE executing Node) or **OneDrive/Desktop** scanning the old path under `node_modules/.pnpm`. This repo generates the client under **`apps/api/src/generated/prisma-client`** to avoid pnpm’s nested rename. If it still fails: stop all Node processes, close the IDE’s Prisma extension temporarily, move the repo off Desktop, or add an antivirus exclusion for the project folder. Correct Nx command: `pnpm exec nx run api:prisma-generate` (not `pnpm api:prisma-generate`).
 - **Auth**: Login uses REST `/auth/login`; JWT is stored with a `Bearer` prefix (cookie + localStorage `user` payload includes `role`, `patientId`, `practitionerId`, `homeLocationId`, `workLocationIds` where applicable). tRPC sends `Authorization: Bearer <token>`.
 - **Booking**: Staff choose a **patient** in the calendar drawer; patients book without that field (always self).
 - **Seed**: `apps/api/prisma/seed.ts` — run with `pnpm prisma:seed` (see root `package.json`) after migrations.

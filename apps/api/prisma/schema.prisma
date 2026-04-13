@@ -2,7 +2,11 @@
 // PostgreSQL
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Outside node_modules/.pnpm so Windows can replace query_engine-*.dll without EPERM on rename
+  // (common when the repo lives on Desktop / OneDrive or AV locks nested paths).
+  output        = "../src/generated/prisma-client"
+  binaryTargets = ["native"]
 }
 
 datasource db {

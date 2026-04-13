@@ -4,7 +4,7 @@ exports.slotsRouter = void 0;
 const tslib_1 = require("tslib");
 const zod_1 = require("zod");
 const server_1 = require("@trpc/server");
-const client_1 = require("@prisma/client");
+const prisma_client_1 = require("../generated/prisma-client");
 const trpc_1 = require("../trpc/trpc");
 exports.slotsRouter = (0, trpc_1.router)({
     available: trpc_1.publicProcedure
@@ -34,7 +34,7 @@ exports.slotsRouter = (0, trpc_1.router)({
     }))
         .mutation((_a) => tslib_1.__awaiter(void 0, [_a], void 0, function* ({ ctx, input }) {
         const user = ctx.user;
-        if (user.role === client_1.UserRole.PRACTITIONER) {
+        if (user.role === prisma_client_1.UserRole.PRACTITIONER) {
             if (user.practitionerId !== input.practitionerId) {
                 throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You can only create slots for yourself' });
             }

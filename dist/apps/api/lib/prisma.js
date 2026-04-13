@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.prisma = void 0;
-const client_1 = require("@prisma/client");
+const prisma_client_1 = require("../generated/prisma-client");
 const globalForPrisma = globalThis;
 exports.prisma = globalForPrisma.prisma ||
-    new client_1.PrismaClient({
+    new prisma_client_1.PrismaClient({
         log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     });
 if (process.env.NODE_ENV !== 'production')

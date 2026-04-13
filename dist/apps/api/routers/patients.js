@@ -5,7 +5,7 @@ const tslib_1 = require("tslib");
 const zod_1 = require("zod");
 const bcryptjs_1 = tslib_1.__importDefault(require("bcryptjs"));
 const server_1 = require("@trpc/server");
-const client_1 = require("@prisma/client");
+const prisma_client_1 = require("../generated/prisma-client");
 const trpc_1 = require("../trpc/trpc");
 const SALT_ROUNDS = 10;
 exports.patientsRouter = (0, trpc_1.router)({
@@ -18,10 +18,10 @@ exports.patientsRouter = (0, trpc_1.router)({
         .query((_a) => tslib_1.__awaiter(void 0, [_a], void 0, function* ({ ctx, input }) {
         const user = ctx.user;
         const where = {};
-        if (user.role === client_1.UserRole.PATIENT) {
+        if (user.role === prisma_client_1.UserRole.PATIENT) {
             where.userId = user.id;
         }
-        else if (user.role === client_1.UserRole.PRACTITIONER && user.practitionerId) {
+        else if (user.role === prisma_client_1.UserRole.PRACTITIONER && user.practitionerId) {
             const locs = yield ctx.prisma.practitionerLocation.findMany({
                 where: { practitionerId: user.practitionerId },
                 select: { locationId: true },
@@ -35,7 +35,7 @@ exports.patientsRouter = (0, trpc_1.router)({
                 where.locationId = input.locationId;
             }
         }
-        else if (user.role === client_1.UserRole.ADMIN) {
+        else if (user.role === prisma_client_1.UserRole.ADMIN) {
             if (input.locationId) {
                 where.locationId = input.locationId;
             }
@@ -79,10 +79,10 @@ exports.patientsRouter = (0, trpc_1.router)({
         if (!row) {
             throw new server_1.TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
         }
-        if (user.role === client_1.UserRole.PATIENT && row.userId !== user.id) {
+        if (user.role === prisma_client_1.UserRole.PATIENT && row.userId !== user.id) {
             throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You cannot view this patient record' });
         }
-        if (user.role === client_1.UserRole.PRACTITIONER && user.practitionerId) {
+        if (user.role === prisma_client_1.UserRole.PRACTITIONER && user.practitionerId) {
             if (!row.locationId) {
                 throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You cannot view this patient record' });
             }
@@ -121,7 +121,7 @@ exports.patientsRouter = (0, trpc_1.router)({
                 email,
                 passwordHash,
                 name: input.name,
-                role: client_1.UserRole.PATIENT,
+                role: prisma_client_1.UserRole.PATIENT,
             },
         });
         const patient = yield ctx.prisma.patient.create({

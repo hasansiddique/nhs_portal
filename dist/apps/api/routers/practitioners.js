@@ -5,7 +5,7 @@ const tslib_1 = require("tslib");
 const zod_1 = require("zod");
 const bcryptjs_1 = tslib_1.__importDefault(require("bcryptjs"));
 const server_1 = require("@trpc/server");
-const client_1 = require("@prisma/client");
+const prisma_client_1 = require("../generated/prisma-client");
 const trpc_1 = require("../trpc/trpc");
 const SALT_ROUNDS = 10;
 exports.practitionersRouter = (0, trpc_1.router)({
@@ -19,7 +19,7 @@ exports.practitionersRouter = (0, trpc_1.router)({
         var _b;
         const user = ctx.user;
         const where = {};
-        if (user.role === client_1.UserRole.PATIENT) {
+        if (user.role === prisma_client_1.UserRole.PATIENT) {
             let locFilter = input.locationId;
             if (!locFilter && user.patientId) {
                 const p = yield ctx.prisma.patient.findUnique({
@@ -35,7 +35,7 @@ exports.practitionersRouter = (0, trpc_1.router)({
                 where.practitionerLocations = { some: {} };
             }
         }
-        else if (user.role === client_1.UserRole.PRACTITIONER && user.practitionerId) {
+        else if (user.role === prisma_client_1.UserRole.PRACTITIONER && user.practitionerId) {
             const locs = yield ctx.prisma.practitionerLocation.findMany({
                 where: { practitionerId: user.practitionerId },
                 select: { locationId: true },
@@ -54,7 +54,7 @@ exports.practitionersRouter = (0, trpc_1.router)({
                 ];
             }
         }
-        else if (user.role === client_1.UserRole.ADMIN) {
+        else if (user.role === prisma_client_1.UserRole.ADMIN) {
             if (input.locationId) {
                 where.practitionerLocations = { some: { locationId: input.locationId } };
             }
@@ -119,7 +119,7 @@ exports.practitionersRouter = (0, trpc_1.router)({
                 email,
                 passwordHash,
                 name: input.name,
-                role: client_1.UserRole.PRACTITIONER,
+                role: prisma_client_1.UserRole.PRACTITIONER,
             },
         });
         const practitioner = yield ctx.prisma.practitioner.create({

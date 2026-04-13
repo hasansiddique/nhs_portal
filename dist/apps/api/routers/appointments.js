@@ -4,7 +4,7 @@ exports.appointmentsRouter = void 0;
 const tslib_1 = require("tslib");
 const zod_1 = require("zod");
 const server_1 = require("@trpc/server");
-const client_1 = require("@prisma/client");
+const prisma_client_1 = require("../generated/prisma-client");
 const trpc_1 = require("../trpc/trpc");
 function generateDemoNhsNumber(ctx) {
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
@@ -27,7 +27,7 @@ function resolvePatientIdForAppointment(ctx, inputPatientId) {
         if (!user) {
             throw new server_1.TRPCError({ code: 'UNAUTHORIZED', message: 'You must be signed in' });
         }
-        if (user.role === client_1.UserRole.PATIENT) {
+        if (user.role === prisma_client_1.UserRole.PATIENT) {
             let selfId = user.patientId;
             if (!selfId) {
                 const row = yield ctx.prisma.patient.findUnique({
@@ -52,7 +52,7 @@ function resolvePatientIdForAppointment(ctx, inputPatientId) {
             if (!patient) {
                 throw new server_1.TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
             }
-            if (user.role === client_1.UserRole.PRACTITIONER && user.practitionerId) {
+            if (user.role === prisma_client_1.UserRole.PRACTITIONER && user.practitionerId) {
                 const patientRow = yield ctx.prisma.patient.findUnique({
                     where: { id: inputPatientId },
                     select: { locationId: true },
@@ -131,15 +131,15 @@ function getAppointmentOrThrow(ctx, id) {
     });
 }
 function assertCanReadAppointment(user, row) {
-    if (user.role === client_1.UserRole.ADMIN)
+    if (user.role === prisma_client_1.UserRole.ADMIN)
         return;
-    if (user.role === client_1.UserRole.PATIENT) {
+    if (user.role === prisma_client_1.UserRole.PATIENT) {
         if (user.patientId !== row.patientId) {
             throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You cannot view this appointment' });
         }
         return;
     }
-    if (user.role === client_1.UserRole.PRACTITIONER) {
+    if (user.role === prisma_client_1.UserRole.PRACTITIONER) {
         if (user.practitionerId === row.practitionerId)
             return;
         throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You cannot view this appointment' });
@@ -148,7 +148,7 @@ function assertCanReadAppointment(user, row) {
 }
 function buildListWhere(user, input) {
     const where = {};
-    if (user.role === client_1.UserRole.PATIENT) {
+    if (user.role === prisma_client_1.UserRole.PATIENT) {
         if (!user.patientId) {
             throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'Patient profile is not linked' });
         }
@@ -157,7 +157,7 @@ function buildListWhere(user, input) {
             where.practitionerId = input.practitionerId;
         }
     }
-    else if (user.role === client_1.UserRole.PRACTITIONER) {
+    else if (user.role === prisma_client_1.UserRole.PRACTITIONER) {
         if (!user.practitionerId) {
             throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'Practitioner profile is not linked' });
         }
@@ -166,7 +166,7 @@ function buildListWhere(user, input) {
             where.patientId = input.patientId;
         }
     }
-    else if (user.role === client_1.UserRole.ADMIN) {
+    else if (user.role === prisma_client_1.UserRole.ADMIN) {
         if (input.patientId)
             where.patientId = input.patientId;
         if (input.practitionerId)
@@ -251,7 +251,7 @@ exports.appointmentsRouter = (0, trpc_1.router)({
             throw new server_1.TRPCError({ code: 'NOT_FOUND', message: 'Slot not found' });
         if (slot.appointment)
             throw new server_1.TRPCError({ code: 'CONFLICT', message: 'Slot already booked' });
-        if (ctx.user.role === client_1.UserRole.PRACTITIONER && ctx.user.practitionerId !== slot.practitionerId) {
+        if (ctx.user.role === prisma_client_1.UserRole.PRACTITIONER && ctx.user.practitionerId !== slot.practitionerId) {
             throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'This slot is for a different practitioner' });
         }
         const patientId = yield resolvePatientIdForAppointment(ctx, input.patientId);
@@ -287,7 +287,7 @@ exports.appointmentsRouter = (0, trpc_1.router)({
         if (input.endAt <= input.startAt) {
             throw new server_1.TRPCError({ code: 'BAD_REQUEST', message: 'Appointment end time must be after the start time' });
         }
-        if (ctx.user.role === client_1.UserRole.PRACTITIONER && ctx.user.practitionerId !== input.practitionerId) {
+        if (ctx.user.role === prisma_client_1.UserRole.PRACTITIONER && ctx.user.practitionerId !== input.practitionerId) {
             throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You can only create appointments as yourself' });
         }
         const patient = yield ctx.prisma.patient.findUnique({
@@ -297,7 +297,7 @@ exports.appointmentsRouter = (0, trpc_1.router)({
         if (!patient) {
             throw new server_1.TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
         }
-        if (ctx.user.role === client_1.UserRole.PRACTITIONER && ctx.user.practitionerId) {
+        if (ctx.user.role === prisma_client_1.UserRole.PRACTITIONER && ctx.user.practitionerId) {
             const ok = yield ctx.prisma.practitionerLocation.findFirst({
                 where: {
                     practitionerId: ctx.user.practitionerId,
@@ -357,7 +357,7 @@ exports.appointmentsRouter = (0, trpc_1.router)({
         .mutation((_a) => tslib_1.__awaiter(void 0, [_a], void 0, function* ({ ctx, input }) {
         const row = yield getAppointmentOrThrow(ctx, input.id);
         const user = ctx.user;
-        if (user.role === client_1.UserRole.PATIENT) {
+        if (user.role === prisma_client_1.UserRole.PATIENT) {
             if (user.patientId !== row.patientId) {
                 throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You cannot update this appointment' });
             }
@@ -365,7 +365,7 @@ exports.appointmentsRouter = (0, trpc_1.router)({
                 throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'Patients may only cancel appointments' });
             }
         }
-        else if (user.role === client_1.UserRole.PRACTITIONER) {
+        else if (user.role === prisma_client_1.UserRole.PRACTITIONER) {
             if (user.practitionerId !== row.practitionerId) {
                 throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You cannot update this appointment' });
             }
