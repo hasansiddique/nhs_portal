@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.authRouter = void 0;
 const tslib_1 = require("tslib");
 const zod_1 = require("zod");
-const bcrypt_1 = tslib_1.__importDefault(require("bcrypt"));
+const bcryptjs_1 = tslib_1.__importDefault(require("bcryptjs"));
 const trpc_1 = require("../trpc/trpc");
 exports.authRouter = (0, trpc_1.router)({
     signIn: trpc_1.publicProcedure
@@ -14,7 +14,7 @@ exports.authRouter = (0, trpc_1.router)({
         });
         if (!user)
             throw new Error('Invalid email or password');
-        const valid = yield bcrypt_1.default.compare(input.password, user.passwordHash);
+        const valid = yield bcryptjs_1.default.compare(input.password, user.passwordHash);
         if (!valid)
             throw new Error('Invalid email or password');
         return {

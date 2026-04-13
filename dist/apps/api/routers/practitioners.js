@@ -6,13 +6,25 @@ const zod_1 = require("zod");
 const trpc_1 = require("../trpc/trpc");
 exports.practitionersRouter = (0, trpc_1.router)({
     list: trpc_1.publicProcedure
-        .input(zod_1.z.object({ cursor: zod_1.z.string().optional(), limit: zod_1.z.number().min(1).max(100).default(20) }))
+        .input(zod_1.z.object({
+        cursor: zod_1.z.string().optional(),
+        limit: zod_1.z.number().min(1).max(500).default(50),
+        locationId: zod_1.z.string().optional(),
+    }))
         .query((_a) => tslib_1.__awaiter(void 0, [_a], void 0, function* ({ ctx, input }) {
         const items = yield ctx.prisma.practitioner.findMany({
             take: input.limit + 1,
             cursor: input.cursor ? { id: input.cursor } : undefined,
+            where: Object.assign({}, (input.locationId
+                ? {
+                    practitionerLocations: {
+                        some: { locationId: input.locationId },
+                    },
+                }
+                : {})),
             include: {
                 user: { select: { id: true, email: true, name: true } },
+                practitionerLocations: Object.assign(Object.assign({}, (input.locationId ? { where: { locationId: input.locationId } } : {})), { include: { location: { select: { id: true, name: true } } } }),
             },
             orderBy: { createdAt: 'desc' },
         });

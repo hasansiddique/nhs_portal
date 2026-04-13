@@ -3,13 +3,23 @@ import { router, publicProcedure, protectedProcedure } from '../trpc/trpc';
 
 export const patientsRouter = router({
   list: publicProcedure
-    .input(z.object({ cursor: z.string().optional(), limit: z.number().min(1).max(100).default(20) }))
+    .input(
+      z.object({
+        cursor: z.string().optional(),
+        limit: z.number().min(1).max(500).default(50),
+        locationId: z.string().optional(),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const items = await ctx.prisma.patient.findMany({
         take: input.limit + 1,
         cursor: input.cursor ? { id: input.cursor } : undefined,
+        where: {
+          ...(input.locationId ? { locationId: input.locationId } : {}),
+        },
         include: {
           user: { select: { id: true, email: true, name: true, phone: true } },
+          location: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'desc' },
       });

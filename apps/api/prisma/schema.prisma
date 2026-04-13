@@ -68,6 +68,8 @@ model Practitioner {
 
   slots         Slot[]
   appointments  Appointment[]
+  availabilityWindows PractitionerAvailabilityWindow[]
+  practitionerLocations PractitionerLocation[]
 }
 
 // --- Location (surgery / clinic)
@@ -81,6 +83,38 @@ model Location {
 
   slots       Slot[]
   patients    Patient[]
+  availabilityWindows PractitionerAvailabilityWindow[]
+  practitionerLocations PractitionerLocation[]
+}
+
+/// Practitioners who work at a given clinic (for directory / filtering).
+model PractitionerLocation {
+  id               String   @id @default(cuid())
+  practitionerId   String   @map("practitioner_id")
+  practitioner     Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  locationId       String   @map("location_id")
+  location         Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([practitionerId, locationId])
+  @@index([locationId])
+}
+
+/// Weekly recurring availability template for a practitioner at a location.
+/// `dayOfWeek`: 1 = Monday … 7 = Sunday (ISO-style).
+/// `windowStartMin` / `windowEndMin`: minutes from midnight (e.g. 9:00 → 540).
+model PractitionerAvailabilityWindow {
+  id               String   @id @default(cuid())
+  practitionerId   String   @map("practitioner_id")
+  practitioner     Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  locationId       String   @map("location_id")
+  location         Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  dayOfWeek        Int      @map("day_of_week")
+  windowStartMin   Int      @map("window_start_min")
+  windowEndMin     Int      @map("window_end_min")
+  slotDurationMin  Int      @default(30) @map("slot_duration_min")
+
+  @@index([practitionerId, locationId])
 }
 
 // --- Slot (available time window for a practitioner at a location)
@@ -96,6 +130,8 @@ model Slot {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   appointment     Appointment?
+
+  @@unique([practitionerId, locationId, startAt, endAt], map: "Slot_practitioner_location_start_end_key")
 }
 
 // --- Appointment (booked slot by a patient)

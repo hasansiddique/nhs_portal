@@ -8,7 +8,7 @@ export default defineConfig({
   cacheDir: '../../node_modules/.vite/apps/web',
 
   server: {
-    port: 4500,
+    port: 4900,
     host: 'localhost',
     proxy: {
       '/trpc': {

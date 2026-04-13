@@ -12,6 +12,7 @@ import {
   authRefreshToken,
 } from './routes/auth';
 import { checkEmail, checkUsername } from './routes/auth';
+import { startAppointmentStatusCron } from './cron/appointmentStatusCron';
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -37,4 +38,5 @@ app.post('/check-username', checkUsername);
 const port = process.env.PORT ?? 4000;
 app.listen(port, () => {
   console.log(`NHS API (tRPC + REST auth) listening on http://localhost:${port}`);
+  startAppointmentStatusCron();
 });

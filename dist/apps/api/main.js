@@ -9,6 +9,7 @@ const routers_1 = require("./routers");
 const context_1 = require("./trpc/context");
 const auth_1 = require("./routes/auth");
 const auth_2 = require("./routes/auth");
+const appointmentStatusCron_1 = require("./cron/appointmentStatusCron");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({ origin: true, credentials: true }));
 app.use(express_1.default.json());
@@ -27,5 +28,6 @@ app.post('/check-username', auth_2.checkUsername);
 const port = (_a = process.env.PORT) !== null && _a !== void 0 ? _a : 4000;
 app.listen(port, () => {
     console.log(`NHS API (tRPC + REST auth) listening on http://localhost:${port}`);
+    (0, appointmentStatusCron_1.startAppointmentStatusCron)();
 });
 //# sourceMappingURL=main.js.map

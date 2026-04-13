@@ -34,9 +34,9 @@ export const RootLayout = () => {
 
   useEffect(() => {
     if (userId && !isHomePage) {
-      fetchChats();
-      fetchCartItems();
-      fetchNotifications();
+      // fetchChats();
+      // fetchCartItems();
+      // fetchNotifications();
     }
   }, [userId, isHomePage]);
 

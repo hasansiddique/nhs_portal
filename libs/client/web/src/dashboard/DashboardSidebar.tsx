@@ -27,7 +27,15 @@ import { PaymentCheck } from '@your-props/client/utils';
 import defaultProfileImage from '../theme/assets/images/avatar/user-img.png';
 import { LocationSelector } from './LocationSelector';
 
-const widgetSidebarData = [
+type SidebarNavItem = {
+  icon: React.ComponentType<{ fill?: string }>;
+  field: string;
+  key: string;
+  /** Absolute app path (e.g. `/dashboard`, `/appointments/book`) */
+  href?: string;
+};
+
+const widgetSidebarData: { id: number; title: string; content: SidebarNavItem[] }[] = [
   {
     id: 0,
     title: 'YourProps',
@@ -35,7 +43,8 @@ const widgetSidebarData = [
       {
         icon: DashboardIcon,
         field: 'Dashboard',
-        key: 'props',
+        key: 'dashboard',
+        href: '/dashboard',
       },
       {
         icon: DashboardBellIcon,
@@ -48,20 +57,20 @@ const widgetSidebarData = [
     id: 1,
     title: 'Appointments',
     content: [
-      // {
-      //   icon: YourPropsIcon,
-      //   field: 'Dashboard',
-      //   key: 'stats',
-      // },
       {
         icon: BulkUploadIcon,
         field: 'Booked',
-        key: 'booked',
+        key: 'appointments',
       },
       {
-        icon: AddNewPropIcon,
-        field: 'Add',
-        key: 'add-item',
+        icon: FollowersIcon,
+        field: 'Patients',
+        key: 'patients',
+      },
+      {
+        icon: MySalesIcon,
+        field: 'Doctors',
+        key: 'doctors',
       },
       /*{
         icon: SavedSearchesIcon,
@@ -142,11 +151,6 @@ const widgetSidebarData = [
         key: 'profile',
       },
       {
-        icon: ShippingIcon,
-        field: 'Shipping',
-        key: 'shipping',
-      },
-      {
         icon: PaymentIcon,
         field: 'Payment',
         key: 'payment',
@@ -160,10 +164,40 @@ const widgetSidebarData = [
   },
 ];
 
+function isNavItemActive(item: SidebarNavItem, pathname: string) {
+  if (item.href) {
+    const base = item.href.replace(/\/$/, '');
+    const p = pathname.replace(/\/$/, '');
+    return p === base;
+  }
+  const last = pathname.split('/').filter(Boolean).pop() ?? '';
+  return last === item.key;
+}
+
+function goToNavItem(
+  item: SidebarNavItem,
+  navigate: ReturnType<typeof useNavigate>,
+  userId: string | undefined,
+  logoutUser: () => void
+) {
+  if (item.key === 'logout') {
+    logoutUser();
+    return;
+  }
+  if (item.key === 'profile') {
+    if (userId) navigate(`/user/${userId}/edit`);
+    return;
+  }
+  if (item.href) {
+    navigate(item.href);
+    return;
+  }
+  navigate(`/dashboard/${item.key}`);
+}
+
 export const DashboardSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const currentRoute = location.pathname.split('/').pop();
   const currentUser = JSON.parse(localStorage.getItem('user') as string);
   const userId = currentUser?.id;
 
@@ -215,33 +249,21 @@ export const DashboardSidebar = () => {
               >
                 {item.title}
               </p>
-              {item.content.map((itemm, index) =>
-                itemm.key === 'add-item' ? (
-                  <PaymentCheck addShowcaseAllowed>
+              {item.content.map((itemm, index) => {
+                const active = isNavItemActive(itemm, location.pathname);
+                return itemm.key === 'add-item' ? (
+                  <PaymentCheck addShowcaseAllowed key={index}>
                     <div
-                      key={index}
-                      onClick={() => navigate(`/dashboard/${itemm.key}`)}
-                      className={`flex items-center cursor-pointer hover:text-[#EF6A3B] bg-[${
-                        currentRoute === itemm.key ? '#222222' : ''
-                      }] ${
-                        currentRoute === itemm.key
-                          ? 'py-[10px] px-[20px] rounded-[10px]'
-                          : 'my-[10px]'
+                      onClick={() => goToNavItem(itemm, navigate, userId, logoutUser)}
+                      className={`flex cursor-pointer items-center hover:text-[#EF6A3B] ${
+                        active ? 'bg-[#222222] py-[10px] px-[20px] rounded-[10px]' : 'my-[10px]'
                       }`}
                     >
-                      <itemm.icon
-                        fill={
-                          currentRoute === itemm.key ? '#EF6A3B' : '#C5B6B3'
-                        }
-                      />
+                      <itemm.icon fill={active ? '#EF6A3B' : '#C5B6B3'} />
                       <p
-                        className={`ml-[12px] text-[18px]  ${
-                          currentRoute === itemm.key
-                            ? 'font-semibold'
-                            : 'font-medium'
-                        } text-[${
-                          currentRoute === itemm.key ? '#ffffff' : '#C5B6B3'
-                        }]`}
+                        className={`ml-[12px] text-[18px] ${
+                          active ? 'font-semibold text-[#ffffff]' : 'font-medium text-[#C5B6B3]'
+                        }`}
                       >
                         {itemm.field}
                       </p>
@@ -250,38 +272,22 @@ export const DashboardSidebar = () => {
                 ) : (
                   <div
                     key={index}
-                    onClick={() =>
-                      itemm.key === 'logout'
-                        ? logoutUser()
-                        : itemm.key === 'profile'
-                        ? navigate(`/user/${userId}/edit`)
-                        : navigate(`/dashboard/${itemm.key}`)
-                    }
-                    className={`flex items-center cursor-pointer hover:text-[#EF6A3B] bg-[${
-                      currentRoute === itemm.key ? '#222222' : ''
-                    }] ${
-                      currentRoute === itemm.key
-                        ? 'py-[10px] px-[20px] rounded-[10px]'
-                        : 'my-[10px]'
+                    onClick={() => goToNavItem(itemm, navigate, userId, logoutUser)}
+                    className={`flex cursor-pointer items-center hover:text-[#EF6A3B] ${
+                      active ? 'bg-[#222222] py-[10px] px-[20px] rounded-[10px]' : 'my-[10px]'
                     }`}
                   >
-                    <itemm.icon
-                      fill={currentRoute === itemm.key ? '#EF6A3B' : '#C5B6B3'}
-                    />
+                    <itemm.icon fill={active ? '#EF6A3B' : '#C5B6B3'} />
                     <p
-                      className={`ml-[12px] text-[18px]  ${
-                        currentRoute === itemm.key
-                          ? 'font-semibold'
-                          : 'font-medium'
-                      } text-[${
-                        currentRoute === itemm.key ? '#ffffff' : '#C5B6B3'
-                      }]`}
+                      className={`ml-[12px] text-[18px] ${
+                        active ? 'font-semibold text-[#ffffff]' : 'font-medium text-[#C5B6B3]'
+                      }`}
                     >
                       {itemm.field}
                     </p>
                   </div>
-                )
-              )}
+                );
+              })}
             </div>
           </div>
         ))}

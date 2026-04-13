@@ -7,8 +7,8 @@ export const slotsRouter = router({
       z.object({
         practitionerId: z.string().optional(),
         locationId: z.string().optional(),
-        from: z.date(),
-        to: z.date(),
+        from: z.coerce.date(),
+        to: z.coerce.date(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -16,8 +16,9 @@ export const slotsRouter = router({
         where: {
           ...(input.practitionerId && { practitionerId: input.practitionerId }),
           ...(input.locationId && { locationId: input.locationId }),
-          startAt: { gte: input.from },
-          endAt: { lte: input.to },
+          // Overlap with [from, to) so same-calendar-day queries work even if `to` is midnight next day.
+          startAt: { lt: input.to },
+          endAt: { gt: input.from },
           appointment: null, // only slots not yet booked
         },
         include: {
@@ -34,8 +35,8 @@ export const slotsRouter = router({
       z.object({
         practitionerId: z.string(),
         locationId: z.string(),
-        startAt: z.date(),
-        endAt: z.date(),
+        startAt: z.coerce.date(),
+        endAt: z.coerce.date(),
       })
     )
     .mutation(async ({ ctx, input }) => {
