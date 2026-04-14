@@ -343,8 +343,14 @@ export function AppointmentCalendarModule() {
   }, [availableSlots, selectedSlotId]);
 
   const openDrawerForDate = (date: Date) => {
+    const dayStart = startOfDay(date);
+    const todayStart = startOfDay(new Date());
+    if (dayStart.getTime() < todayStart.getTime()) {
+      toast.error('You cannot add appointments on past dates.');
+      return;
+    }
     setDetailAppointment(null);
-    setSelectedDate(startOfDay(date));
+    setSelectedDate(dayStart);
     setSelectedSlotId(null);
     setDrawerOpen(true);
     if (!practitionerId && practitioners[0]) {
@@ -581,12 +587,18 @@ export function AppointmentCalendarModule() {
                     const hiddenCount = overflowAppointments.length;
                     const isOutsideMonth = !isSameMonth(day, currentMonth);
                     const isTodayDay = isToday(day);
+                    const isPastDay = startOfDay(day).getTime() < startOfDay(new Date()).getTime();
 
                     return (
                       <div
                         key={dayKey}
                         onClick={() => openDrawerForDate(day)}
-                        className={`box-border flex min-h-[25px] min-w-0 cursor-pointer flex-col ${CAL_BD_RB} px-2 py-2.5 text-left transition-colors hover:bg-white/[0.03] sm:min-h-[40px] sm:px-3 sm:py-3`}
+                        title={isPastDay ? 'Past dates cannot be used for new appointments' : undefined}
+                        className={`box-border flex min-h-[25px] min-w-0 flex-col ${CAL_BD_RB} px-2 py-2.5 text-left transition-colors sm:min-h-[40px] sm:px-3 sm:py-3 ${
+                          isPastDay
+                            ? 'cursor-not-allowed opacity-[0.42] hover:bg-transparent'
+                            : 'cursor-pointer hover:bg-white/[0.03]'
+                        }`}
                         style={{
                           backgroundColor: isSameDay(day, selectedDate) ? 'rgba(239,107,59,0.1)' : 'transparent',
                           boxShadow: isSameDay(day, selectedDate)
