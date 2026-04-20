@@ -24,7 +24,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {prefix && (
               <div
                 className={cn(
-                  'absolute top-1 left-1 bottom-1 flex items-center justify-center rounded-l-[10px] text-gray-500 border-r border-solid border-[#8a8aa04d] bg-[#222222] px-[10px] min-w-[40px] text-[18px] font-bold transition'
+                  'absolute top-1 left-1 bottom-1 flex items-center justify-center rounded-l-[4px] text-[#C5B6B3] border-r border-solid border-white/10 bg-[#222222] px-[10px] min-w-[40px] text-[18px] font-bold transition'
                 )}
               >
                 {prefix}
@@ -33,7 +33,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             <input
               type={type}
               className={cn(
-                'flex h-10 w-full border border-input rounded-[10px] border-[#4B5768] bg-background text-base ring-offset-background file:border-0 file:bg-transparent hover:border-[#b3b3b3] file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition',
+                'flex h-10 w-full rounded-[4px] border border-solid border-white/10 bg-[#222222] px-3 text-base text-[#EBEBEB] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-[#C5B6B3] focus-visible:border-[var(--primary-color3)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition',
                 withError && 'border-destructive focus-visible:border-destructive',
                 prefix && '!pl-[60px]',
                 className
@@ -48,7 +48,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             <input
               type={showPassword ? 'text' : type}
               className={cn(
-                'h-10 w-full ',
+                'h-10 w-full rounded-[4px] border border-solid border-white/10 bg-[#222222] px-3 text-base text-[#EBEBEB] placeholder:text-[#C5B6B3] focus-visible:border-[var(--primary-color3)] focus-visible:outline-none transition',
                 withError && 'border-destructive focus-visible:border-destructive',
                 className
               )}

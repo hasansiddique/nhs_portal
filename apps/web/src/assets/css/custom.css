@@ -89,6 +89,57 @@ html {
   }
 }
 
+/* Global form control styling (match calendar selectors) */
+input,
+select,
+textarea,
+.form-control,
+.form-select,
+.dropdown-toggle {
+  border-radius: 4px !important;
+}
+
+/* Global radius rule: anywhere it's rounded, keep it 4px */
+[class*="rounded"],
+[class*="rounded-"] {
+  border-radius: 4px !important;
+}
+
+.rounded-circle,
+.rounded-pill {
+  border-radius: 4px !important;
+}
+
+.is_dark input:not([type='checkbox']):not([type='radio']),
+.is_dark select,
+.is_dark textarea,
+.is_dark .form-control,
+.is_dark .form-select {
+  background-color: #222222 !important;
+  color: #ebebeb !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.is_dark input::placeholder,
+.is_dark textarea::placeholder {
+  color: #c5b6b3 !important;
+}
+
+.is_dark select option {
+  background-color: #222222;
+  color: #ebebeb;
+}
+
+.is_dark input:focus,
+.is_dark select:focus,
+.is_dark textarea:focus,
+.is_dark .form-control:focus,
+.is_dark .form-select:focus {
+  border-color: var(--primary-color3) !important;
+  box-shadow: 0 0 0 2px rgba(239, 106, 59, 0.18) !important;
+  outline: none !important;
+}
+
 /* @media (min-width: 820px) {
   .md-hidden {
     display: none;

@@ -471,6 +471,7 @@ export function AppointmentCalendarModule() {
               <input
                 type="month"
                 className="absolute inset-0 cursor-pointer opacity-0"
+                style={{ colorScheme: 'dark' }}
                 value={format(currentMonth, 'yyyy-MM')}
                 onChange={(event) => {
                   const value = event.target.value;
@@ -875,7 +876,7 @@ export function AppointmentCalendarModule() {
                           key={slot.id}
                           type="button"
                           onClick={() => setSelectedSlotId(slot.id)}
-                          className={`!m-0 shrink-0 !rounded-[12px] !border !border-solid !px-3 !py-2 text-sm !font-medium !leading-tight !shadow-none transition ${
+                          className={`!m-0 shrink-0 !rounded-[4px] !border !border-solid !px-3 !py-2 text-sm !font-medium !leading-tight !shadow-none transition ${
                             isSelected
                               ? '!border-[var(--primary-color3)] !bg-[var(--primary-color3)]/15'
                               : '!border-white/[0.12] !bg-transparent hover:!bg-white/[0.06]'
