@@ -81,14 +81,6 @@ function resolvePatientIdForAppointment(ctx, inputPatientId) {
         throw new server_1.TRPCError({ code: 'BAD_REQUEST', message: 'patientId is required' });
     });
 }
-function assertAppointmentNotInPast(startAt) {
-    if (startAt.getTime() < Date.now()) {
-        throw new server_1.TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Appointments cannot be scheduled in the past. Choose a future date and time.',
-        });
-    }
-}
 function assertNoAppointmentConflicts(ctx, input) {
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
         const [patientConflict, practitionerConflict] = yield Promise.all([
@@ -226,8 +218,8 @@ exports.appointmentsRouter = (0, trpc_1.router)({
             where,
             take: input.limit,
             include: {
-                patient: { include: { user: { select: { name: true, email: true } } } },
-                practitioner: { include: { user: { select: { name: true } } } },
+                patient: { include: { user: { select: { name: true, email: true, dateOfBirth: true } } } },
+                practitioner: { select: { id: true, title: true, speciality: true, user: { select: { name: true } } } },
                 slot: { include: { location: true } },
             },
             orderBy: { createdAt: 'desc' },
@@ -239,8 +231,8 @@ exports.appointmentsRouter = (0, trpc_1.router)({
         const appointment = yield ctx.prisma.appointment.findUnique({
             where: { id: input.id },
             include: {
-                patient: { include: { user: { select: { name: true, email: true, phone: true } } } },
-                practitioner: { include: { user: { select: { name: true } } } },
+                patient: { include: { user: { select: { name: true, email: true, phone: true, dateOfBirth: true } } } },
+                practitioner: { select: { id: true, title: true, speciality: true, user: { select: { name: true } } } },
                 slot: { include: { location: true } },
             },
         });
@@ -272,7 +264,6 @@ exports.appointmentsRouter = (0, trpc_1.router)({
             throw new server_1.TRPCError({ code: 'NOT_FOUND', message: 'Slot not found' });
         if (slot.appointment)
             throw new server_1.TRPCError({ code: 'CONFLICT', message: 'Slot already booked' });
-        assertAppointmentNotInPast(slot.startAt);
         if (ctx.user.role === prisma_client_1.UserRole.PRACTITIONER && ctx.user.practitionerId !== slot.practitionerId) {
             throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'This slot is for a different practitioner' });
         }
@@ -309,7 +300,6 @@ exports.appointmentsRouter = (0, trpc_1.router)({
         if (input.endAt <= input.startAt) {
             throw new server_1.TRPCError({ code: 'BAD_REQUEST', message: 'Appointment end time must be after the start time' });
         }
-        assertAppointmentNotInPast(input.startAt);
         if (ctx.user.role === prisma_client_1.UserRole.PRACTITIONER && ctx.user.practitionerId !== input.practitionerId) {
             throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You can only create appointments as yourself' });
         }

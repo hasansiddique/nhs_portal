@@ -10,6 +10,7 @@ const routers_1 = require("./routers");
 const context_1 = require("./trpc/context");
 const auth_1 = require("./routes/auth");
 const auth_2 = require("./routes/auth");
+const publicLocations_1 = require("./routes/publicLocations");
 const appointmentStatusCron_1 = require("./cron/appointmentStatusCron");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({ origin: true, credentials: true }));
@@ -26,6 +27,7 @@ app.post('/auth/reset-password', auth_1.authResetPassword);
 app.post('/auth/refresh-token', auth_1.authRefreshToken);
 app.post('/check-email', auth_2.checkEmail);
 app.post('/check-username', auth_2.checkUsername);
+app.post('/public/locations-by-postcode', publicLocations_1.publicLocationsByPostcode);
 const port = (_a = process.env.PORT) !== null && _a !== void 0 ? _a : 4000;
 app.listen(port, () => {
     console.log(`NHS API (tRPC + REST auth) listening on http://localhost:${port}`);

@@ -7,6 +7,8 @@ import { RootLayout } from './RootLayout';
 import { DashboardLayout } from './DashboardLayout';
 import { AuthLayout } from './AuthLayout';
 import { DashboardRoleRoute } from './components/DashboardRoleRoute';
+import { PublicAnalyticsLayout } from './PublicAnalyticsLayout';
+import { ProtectedRoute } from './ProtectedRoute';
 
 const queryClient = new QueryClient();
 
@@ -44,21 +46,34 @@ const router = createBrowserRouter(
         {
           path: 'appointments',
           HydrateFallback: Fallback,
+          element: (
+            <ProtectedRoute>
+              <Outlet />
+            </ProtectedRoute>
+          ),
           children: [
             { index: true, lazy: () => import('./pages/appointments/list').then((m) => ({ Component: m.default })) },
             { path: 'book', lazy: () => import('./pages/appointments/book').then((m) => ({ Component: m.default })) },
           ],
         },
         {
+          path: 'dashboard/data-insights',
+          element: <PublicAnalyticsLayout />,
+          HydrateFallback: Fallback,
+          children: [
+            { index: true, lazy: () => import('./pages/dashboard/data-insights').then((m) => ({ Component: m.default })) },
+          ],
+        },
+        {
           path: 'dashboard',
-          element: <DashboardLayout />,
+          element: (
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          ),
           HydrateFallback: Fallback,
           children: [
             { index: true, lazy: () => import('./pages/dashboard/index').then((m) => ({ Component: m.default })) },
-            {
-              path: 'data-insights',
-              lazy: () => import('./pages/dashboard/data-insights').then((m) => ({ Component: m.default })),
-            },
             { path: 'appointments', lazy: () => import('./pages/dashboard/appointments').then((m) => ({ Component: m.default })) },
             { path: 'slots', lazy: () => import('./pages/dashboard/slots').then((m) => ({ Component: m.default })) },
             {

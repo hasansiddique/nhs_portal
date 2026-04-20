@@ -244,8 +244,8 @@ export const appointmentsRouter = router({
         where,
         take: input.limit,
         include: {
-          patient: { include: { user: { select: { name: true, email: true } } } },
-          practitioner: { include: { user: { select: { name: true } } } },
+          patient: { include: { user: { select: { name: true, email: true, dateOfBirth: true } } } },
+          practitioner: { select: { id: true, title: true, speciality: true, user: { select: { name: true } } } },
           slot: { include: { location: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -257,8 +257,8 @@ export const appointmentsRouter = router({
     const appointment = await ctx.prisma.appointment.findUnique({
       where: { id: input.id },
       include: {
-        patient: { include: { user: { select: { name: true, email: true, phone: true } } } },
-        practitioner: { include: { user: { select: { name: true } } } },
+        patient: { include: { user: { select: { name: true, email: true, phone: true, dateOfBirth: true } } } },
+        practitioner: { select: { id: true, title: true, speciality: true, user: { select: { name: true } } } },
         slot: { include: { location: true } },
       },
     });

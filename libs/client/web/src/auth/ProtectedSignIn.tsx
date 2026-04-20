@@ -200,6 +200,17 @@ export const ProtectedSignIn = () => {
                 </form>
               </Form>
             </div>
+
+            <div className="box-title-login my-10">
+              <h5>Or create account</h5>
+            </div>
+
+            <Link
+              to="/auth/signup"
+              className="sc-button style-2 w-full fl-button pri-3 social-icon rounded-[10px] flex items-center justify-center"
+            >
+              <span className="ml-3">Register</span>
+            </Link>
           </div>
         </>
       )}

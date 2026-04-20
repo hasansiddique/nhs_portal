@@ -13,15 +13,16 @@ type LocationStore = {
     toggleLocationId: (id: string) => void;
     selectAllLocations: () => void;
 };
+type PersistedLocationSlice = Pick<LocationStore, 'selectedLocationIds'>;
 export declare const useLocationStore: import('zustand').UseBoundStore<Omit<import('zustand').StoreApi<LocationStore>, "persist"> & {
     persist: {
-        setOptions: (options: Partial<import('zustand/middleware').PersistOptions<LocationStore, T>>) => void;
+        setOptions: (options: Partial<import('zustand/middleware').PersistOptions<LocationStore, PersistedLocationSlice>>) => void;
         clearStorage: () => void;
         rehydrate: () => Promise<void> | void;
         hasHydrated: () => boolean;
         onHydrate: (fn: (state: LocationStore) => void) => () => void;
         onFinishHydration: (fn: (state: LocationStore) => void) => () => void;
-        getOptions: () => Partial<import('zustand/middleware').PersistOptions<LocationStore, T>>;
+        getOptions: () => Partial<import('zustand/middleware').PersistOptions<LocationStore, PersistedLocationSlice>>;
     };
 }>;
 /** For tRPC / Prisma: `undefined` means no location filter (all). */

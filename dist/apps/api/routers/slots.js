@@ -49,12 +49,6 @@ exports.slotsRouter = (0, trpc_1.router)({
                 throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'You do not work at this location' });
             }
         }
-        if (input.startAt.getTime() < Date.now()) {
-            throw new server_1.TRPCError({
-                code: 'BAD_REQUEST',
-                message: 'Slots cannot start in the past. Choose a future date and time.',
-            });
-        }
         return ctx.prisma.slot.create({
             data: {
                 practitionerId: input.practitionerId,

@@ -143,6 +143,35 @@ function patientsPerLocationCount(locationCount: number): number {
   return 2;
 }
 
+function hashStringForPostcode(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+/**
+ * Demo postcodes per Sub-ICB site so registration can filter clinics by outward / prefix.
+ * (Open-data extract does not include per-site postcodes.)
+ */
+function demoPostcodeForSubIcbLocation(loc: SubIcbLocationSeed): string {
+  const regionOutward: Record<string, string> = {
+    'North West': 'M',
+    London: 'SW',
+    Midlands: 'B',
+    'North East and Yorkshire': 'LS',
+    'South East': 'GU',
+    'South West': 'EX',
+    'East of England': 'IP',
+  };
+  const outwardBase = regionOutward[loc.regionName] ?? 'CB';
+  const h = hashStringForPostcode(loc.code);
+  const mid = (h % 9) + 1;
+  const inner = String((h % 89) + 10);
+  return `${outwardBase}${mid} ${inner}AA`;
+}
+
 /** Former seed clinicians removed when roster was aligned to NHS regions. */
 const LEGACY_PRACTITIONER_EMAILS = [
   'james.chen@nhs-demo.local',
@@ -281,18 +310,19 @@ async function main() {
   }
 
   for (const loc of locationSeeds) {
+    const postcode = demoPostcodeForSubIcbLocation(loc);
     await prisma.location.upsert({
       where: { id: loc.id },
       update: {
         name: loc.name,
         address: loc.address,
-        postcode: loc.postcode,
+        postcode,
       },
       create: {
         id: loc.id,
         name: loc.name,
         address: loc.address,
-        postcode: loc.postcode,
+        postcode,
       },
     });
   }

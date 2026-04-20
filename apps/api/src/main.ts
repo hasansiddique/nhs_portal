@@ -13,6 +13,7 @@ import {
   authRefreshToken,
 } from './routes/auth';
 import { checkEmail, checkUsername } from './routes/auth';
+import { publicLocationsByPostcode } from './routes/publicLocations';
 import { startAppointmentStatusCron } from './cron/appointmentStatusCron';
 
 const app = express();
@@ -35,6 +36,7 @@ app.post('/auth/reset-password', authResetPassword);
 app.post('/auth/refresh-token', authRefreshToken);
 app.post('/check-email', checkEmail);
 app.post('/check-username', checkUsername);
+app.post('/public/locations-by-postcode', publicLocationsByPostcode);
 
 const port = process.env.PORT ?? 4000;
 app.listen(port, () => {

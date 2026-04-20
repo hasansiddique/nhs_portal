@@ -74,13 +74,13 @@ export const LocationSelector: React.FC = () => {
         </Dropdown.Toggle>
 
         {!isPatient && (
-          <Dropdown.Menu className="!top-[18px] max-h-[min(70vh,360px)] w-full overflow-y-auto text-base">
+          <Dropdown.Menu className="!top-[18px] max-h-[min(70vh,360px)] w-full overflow-y-auto text-base border border-[#393939] bg-[#222222] shadow-xl">
             {visibleLocations.length > 0 && (
               <>
                 <Dropdown.Header className="text-xs uppercase text-[#C5B6B3]">Quick</Dropdown.Header>
                 <Dropdown.Item
                   key="all"
-                  className="py-2.5 text-base"
+                  className="py-2.5 text-base text-[#EBEBEB] hover:!bg-[#2a2a2a] hover:!text-white focus:!bg-[#2a2a2a]"
                   onClick={() => {
                     selectAllLocations();
                   }}
@@ -128,7 +128,7 @@ export const LocationSelector: React.FC = () => {
               </>
             )}
             {locations.length === 0 && (
-              <Dropdown.Item disabled className="py-2.5 text-base">
+              <Dropdown.Item disabled className="py-2.5 text-base text-[#C5B6B3]">
                 No locations configured
               </Dropdown.Item>
             )}

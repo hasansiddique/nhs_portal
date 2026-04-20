@@ -24,6 +24,7 @@ export * from './dashboard/payments/CheckoutSuccess';
 export * from './dashboard/payments/CheckoutCancel';
 export * from './dashboard/bulk-upload/BulkUpload';
 export * from './dashboard/DashboardSidebar';
+export * from './dashboard/LocationSelector';
 export * from './dashboard/right-sidebar/right-sidebar';
 export * from './dashboard/saved-searches/SavedSearches';
 export * from './dashboard/notification/Notifications';

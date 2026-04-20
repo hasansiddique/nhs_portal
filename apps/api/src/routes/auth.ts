@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { locationMatchesPostcodeFilter, normalizeUkPostcode } from '../lib/postcode';
 import { prisma } from '../lib/prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nhs-portal-secret-change-in-production';
@@ -126,13 +127,45 @@ export async function authLogin(req: Request, res: Response) {
 
 export async function authSignup(req: Request, res: Response) {
   try {
-    const body = (req.body || {}) as { email?: string; username?: string; password?: string; type?: string };
+    const body = (req.body || {}) as {
+      email?: string;
+      username?: string;
+      password?: string;
+      confirmPassword?: string;
+      role?: string;
+      type?: string;
+      postcode?: string;
+      locationIds?: string[];
+    };
     const email = String(body.email ?? '').trim().toLowerCase();
     const username = String(body.username ?? body.email ?? '').trim();
     const password = body.password != null ? String(body.password) : '';
+    const confirmPassword = body.confirmPassword != null ? String(body.confirmPassword) : '';
+    const roleRaw = String(body.role ?? '').trim().toUpperCase();
+    const role = roleRaw === 'PRACTITIONER' ? 'PRACTITIONER' : 'PATIENT';
+    const postcodeRaw = String(body.postcode ?? '').trim();
+    const postcodeNorm = normalizeUkPostcode(postcodeRaw);
+    const locationIds = Array.isArray(body.locationIds)
+      ? [...new Set(body.locationIds.map((id) => String(id ?? '').trim()).filter(Boolean))]
+      : [];
 
     if (!email || !password) {
       sendError(res, 400, { error: 'Email and password are required' });
+      return;
+    }
+
+    if (confirmPassword && confirmPassword !== password) {
+      sendError(res, 400, { error: 'Password and confirm password do not match' });
+      return;
+    }
+
+    if (!postcodeNorm || postcodeNorm.length < 2) {
+      sendError(res, 400, { error: 'Please enter a valid postcode' });
+      return;
+    }
+
+    if (locationIds.length === 0) {
+      sendError(res, 400, { error: 'Select at least one clinic location' });
       return;
     }
 
@@ -142,6 +175,22 @@ export async function authSignup(req: Request, res: Response) {
       return;
     }
 
+    const locations = await prisma.location.findMany({
+      where: { id: { in: locationIds } },
+      select: { id: true, postcode: true },
+    });
+    if (locations.length !== locationIds.length) {
+      sendError(res, 400, { error: 'One or more selected clinics are invalid' });
+      return;
+    }
+
+    for (const loc of locations) {
+      if (!locationMatchesPostcodeFilter(postcodeRaw, loc.postcode)) {
+        sendError(res, 400, { error: 'Selected clinics do not match the postcode you entered' });
+        return;
+      }
+    }
+
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     const user = await prisma.user.create({
@@ -149,17 +198,36 @@ export async function authSignup(req: Request, res: Response) {
         email,
         passwordHash,
         name: username || email,
-        role: 'PATIENT',
+        role: role as any,
       },
     });
 
-    await prisma.patient.create({
-      data: {
-        userId: user.id,
-        nhsNumber: await generateDemoNhsNumber(),
-        dateOfBirth: new Date('1990-01-01T00:00:00.000Z'),
-      },
-    });
+    if (role === 'PRACTITIONER') {
+      const practitioner = await prisma.practitioner.create({
+        data: {
+          userId: user.id,
+          title: 'Dr',
+        },
+        select: { id: true },
+      });
+      await prisma.practitionerLocation.createMany({
+        data: locationIds.map((locationId) => ({
+          practitionerId: practitioner.id,
+          locationId,
+        })),
+        skipDuplicates: true,
+      });
+    } else {
+      await prisma.patient.create({
+        data: {
+          userId: user.id,
+          nhsNumber: await generateDemoNhsNumber(),
+          dateOfBirth: new Date('1990-01-01T00:00:00.000Z'),
+          locationId: locationIds[0],
+          postcode: postcodeRaw,
+        },
+      });
+    }
 
     res.json({ message: 'Account created successfully. You can sign in now.' });
   } catch (e) {

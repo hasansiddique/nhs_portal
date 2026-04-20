@@ -25,8 +25,8 @@ function dedupe(ids: string[]) {
 
 type PersistedLocationSlice = Pick<LocationStore, 'selectedLocationIds'>;
 
-export const useLocationStore = create(
-  persist<LocationStore, PersistedLocationSlice>(
+export const useLocationStore = create<LocationStore>()(
+  persist(
     (set, get) => ({
       locations: [],
       selectedLocationIds: 'all',
@@ -73,7 +73,7 @@ export const useLocationStore = create(
     }),
     {
       name: 'nhs-portal-location-filter',
-      partialize: (s) => ({ selectedLocationIds: s.selectedLocationIds }),
+      partialize: (s): PersistedLocationSlice => ({ selectedLocationIds: s.selectedLocationIds }),
     }
   )
 );

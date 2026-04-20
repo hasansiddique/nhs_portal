@@ -12,6 +12,7 @@ const tslib_1 = require("tslib");
 const bcryptjs_1 = tslib_1.__importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = tslib_1.__importDefault(require("jsonwebtoken"));
 const crypto_1 = tslib_1.__importDefault(require("crypto"));
+const postcode_1 = require("../lib/postcode");
 const prisma_1 = require("../lib/prisma");
 const JWT_SECRET = process.env.JWT_SECRET || 'nhs-portal-secret-change-in-production';
 const SALT_ROUNDS = 10;
@@ -108,14 +109,34 @@ function authLogin(req, res) {
 }
 function authSignup(req, res) {
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c;
+        var _a, _b, _c, _d, _e;
         try {
             const body = (req.body || {});
             const email = String((_a = body.email) !== null && _a !== void 0 ? _a : '').trim().toLowerCase();
             const username = String((_c = (_b = body.username) !== null && _b !== void 0 ? _b : body.email) !== null && _c !== void 0 ? _c : '').trim();
             const password = body.password != null ? String(body.password) : '';
+            const confirmPassword = body.confirmPassword != null ? String(body.confirmPassword) : '';
+            const roleRaw = String((_d = body.role) !== null && _d !== void 0 ? _d : '').trim().toUpperCase();
+            const role = roleRaw === 'PRACTITIONER' ? 'PRACTITIONER' : 'PATIENT';
+            const postcodeRaw = String((_e = body.postcode) !== null && _e !== void 0 ? _e : '').trim();
+            const postcodeNorm = (0, postcode_1.normalizeUkPostcode)(postcodeRaw);
+            const locationIds = Array.isArray(body.locationIds)
+                ? [...new Set(body.locationIds.map((id) => String(id !== null && id !== void 0 ? id : '').trim()).filter(Boolean))]
+                : [];
             if (!email || !password) {
                 sendError(res, 400, { error: 'Email and password are required' });
+                return;
+            }
+            if (confirmPassword && confirmPassword !== password) {
+                sendError(res, 400, { error: 'Password and confirm password do not match' });
+                return;
+            }
+            if (!postcodeNorm || postcodeNorm.length < 2) {
+                sendError(res, 400, { error: 'Please enter a valid postcode' });
+                return;
+            }
+            if (locationIds.length === 0) {
+                sendError(res, 400, { error: 'Select at least one clinic location' });
                 return;
             }
             const existing = yield prisma_1.prisma.user.findUnique({ where: { email } });
@@ -123,22 +144,56 @@ function authSignup(req, res) {
                 sendError(res, 400, { error: 'Email is already registered' });
                 return;
             }
+            const locations = yield prisma_1.prisma.location.findMany({
+                where: { id: { in: locationIds } },
+                select: { id: true, postcode: true },
+            });
+            if (locations.length !== locationIds.length) {
+                sendError(res, 400, { error: 'One or more selected clinics are invalid' });
+                return;
+            }
+            for (const loc of locations) {
+                if (!(0, postcode_1.locationMatchesPostcodeFilter)(postcodeRaw, loc.postcode)) {
+                    sendError(res, 400, { error: 'Selected clinics do not match the postcode you entered' });
+                    return;
+                }
+            }
             const passwordHash = yield bcryptjs_1.default.hash(password, SALT_ROUNDS);
             const user = yield prisma_1.prisma.user.create({
                 data: {
                     email,
                     passwordHash,
                     name: username || email,
-                    role: 'PATIENT',
+                    role: role,
                 },
             });
-            yield prisma_1.prisma.patient.create({
-                data: {
-                    userId: user.id,
-                    nhsNumber: yield generateDemoNhsNumber(),
-                    dateOfBirth: new Date('1990-01-01T00:00:00.000Z'),
-                },
-            });
+            if (role === 'PRACTITIONER') {
+                const practitioner = yield prisma_1.prisma.practitioner.create({
+                    data: {
+                        userId: user.id,
+                        title: 'Dr',
+                    },
+                    select: { id: true },
+                });
+                yield prisma_1.prisma.practitionerLocation.createMany({
+                    data: locationIds.map((locationId) => ({
+                        practitionerId: practitioner.id,
+                        locationId,
+                    })),
+                    skipDuplicates: true,
+                });
+            }
+            else {
+                yield prisma_1.prisma.patient.create({
+                    data: {
+                        userId: user.id,
+                        nhsNumber: yield generateDemoNhsNumber(),
+                        dateOfBirth: new Date('1990-01-01T00:00:00.000Z'),
+                        locationId: locationIds[0],
+                        postcode: postcodeRaw,
+                    },
+                });
+            }
             res.json({ message: 'Account created successfully. You can sign in now.' });
         }
         catch (e) {

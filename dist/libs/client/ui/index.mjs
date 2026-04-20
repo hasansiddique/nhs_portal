@@ -15141,7 +15141,7 @@ const D7 = (e) => {
 function TS(e) {
   return [...new Set(e)];
 }
-Ca(
+Ca()(
   BC(
     (e, t) => ({
       locations: [],

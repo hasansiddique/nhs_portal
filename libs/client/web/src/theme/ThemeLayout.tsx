@@ -41,7 +41,7 @@ export const ThemeLayout = ({ children }: { children: React.ReactNode }) => {
 
       <Header />
 
-      <main className={`flex-1 ${needsHeaderOffset ? 'pt-[96px]' : ''}`}>
+      <main className={`flex-1 ${needsHeaderOffset ? 'pt-[80px]' : ''}`}>
         {children}
       </main>
 

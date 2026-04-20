@@ -14947,7 +14947,7 @@ const Yh = Qn((n, e) => ({
 function Tf(n) {
   return [...new Set(n)];
 }
-const JC = Qn(
+const JC = Qn()(
   Bh(
     (n, e) => ({
       locations: [],
