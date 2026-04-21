@@ -99,6 +99,17 @@ const router = createBrowserRouter(
                 })),
             },
             {
+              path: 'availability',
+              lazy: () =>
+                import('./pages/dashboard/availability').then((m) => ({
+                  Component: () => (
+                    <DashboardRoleRoute roles={['ADMIN', 'PRACTITIONER']}>
+                      <m.default />
+                    </DashboardRoleRoute>
+                  ),
+                })),
+            },
+            {
               path: 'admin/patients/new',
               lazy: () =>
                 import('./pages/dashboard/admin-add-patient').then((m) => ({

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dropdown } from 'react-bootstrap';
 
 import { useLocationStore } from '@your-props/client/utils';
@@ -24,6 +24,7 @@ export const LocationSelector: React.FC = () => {
   const locationsQuery = trpc.locations.list.useQuery();
   const session = readSessionUser();
   const patientHomeApplied = useRef(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (locationsQuery.data && locationsQuery.data.length > 0 && locations.length === 0) {
@@ -47,6 +48,12 @@ export const LocationSelector: React.FC = () => {
     }
     return locations;
   }, [locations, isPractitioner, workIds]);
+
+  const filteredLocations = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return visibleLocations;
+    return visibleLocations.filter((l) => l.name.toLowerCase().includes(q));
+  }, [search, visibleLocations]);
 
   const allSelected =
     selectedLocationIds === 'all' ||
@@ -90,6 +97,14 @@ export const LocationSelector: React.FC = () => {
                 <Dropdown.Divider />
                 <Dropdown.Header className="text-xs uppercase text-[#C5B6B3]">Clinics</Dropdown.Header>
                 <div className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search locations…"
+                    className="mb-3 h-10 w-full rounded-[4px] border border-white/10 bg-[#1a1a1a] px-3 text-sm text-[#EBEBEB] placeholder:text-[#C5B6B3] outline-none focus:border-[var(--primary-color3)]"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
                   <label className="mb-2 flex cursor-pointer items-center gap-2 text-sm text-[#EBEBEB]">
                     <input
                       type="checkbox"
@@ -105,7 +120,10 @@ export const LocationSelector: React.FC = () => {
                     />
                     Select all
                   </label>
-                  {visibleLocations.map((loc) => {
+                  {filteredLocations.length === 0 ? (
+                    <p className="py-2 text-sm text-[#C5B6B3]">No locations match your search.</p>
+                  ) : null}
+                  {filteredLocations.map((loc) => {
                     const checked =
                       selectedLocationIds === 'all' ||
                       (Array.isArray(selectedLocationIds) && selectedLocationIds.includes(loc.id));

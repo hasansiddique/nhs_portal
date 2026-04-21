@@ -2,6 +2,11 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { UserRole } from '../generated/prisma-client';
 import { router, publicProcedure, protectedProcedure, staffProcedure } from '../trpc/trpc';
+import {
+  assertIntervalMatchesAvailability,
+  materializeSlotsForManyPractitioners,
+  resolvePractitionerIdsForSlotQuery,
+} from '../lib/practitionerAvailabilityMaterialize';
 
 export const slotsRouter = router({
   available: publicProcedure
@@ -18,6 +23,22 @@ export const slotsRouter = router({
       const locIds = input.locationIds?.length ? input.locationIds : input.locationId ? [input.locationId] : [];
       const locationClause =
         locIds.length > 1 ? { locationId: { in: locIds } } : locIds.length === 1 ? { locationId: locIds[0] } : {};
+
+      const practitionerIds = await resolvePractitionerIdsForSlotQuery({
+        prisma: ctx.prisma,
+        practitionerId: input.practitionerId,
+        locationIds: locIds.length ? locIds : undefined,
+      });
+
+      if (practitionerIds?.length) {
+        await materializeSlotsForManyPractitioners({
+          prisma: ctx.prisma,
+          practitionerIds,
+          locationIds: locIds.length ? locIds : undefined,
+          from: input.from,
+          to: input.to,
+        });
+      }
 
       const slots = await ctx.prisma.slot.findMany({
         where: {
@@ -47,6 +68,14 @@ export const slotsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const user = ctx.user!;
+      await assertIntervalMatchesAvailability({
+        prisma: ctx.prisma,
+        practitionerId: input.practitionerId,
+        locationId: input.locationId,
+        startAt: input.startAt,
+        endAt: input.endAt,
+      });
+
       if (user.role === UserRole.PRACTITIONER) {
         if (user.practitionerId !== input.practitionerId) {
           throw new TRPCError({ code: 'FORBIDDEN', message: 'You can only create slots for yourself' });

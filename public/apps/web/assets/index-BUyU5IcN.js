@@ -1,1 +1,0 @@
-import{j as o}from"./index-CudP80nK.js";import{D as l}from"./DashboardAppointmentsList-B2nI2lhz.js";import"./chevron-right-Cxk7lY1q.js";function e(){return o.jsx("div",{className:"flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-auto px-5 py-6 lg:px-8 lg:py-8",children:o.jsx(l,{})})}export{e as default};

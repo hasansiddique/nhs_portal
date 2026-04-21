@@ -6,6 +6,7 @@ const zod_1 = require("zod");
 const server_1 = require("@trpc/server");
 const prisma_client_1 = require("../generated/prisma-client");
 const trpc_1 = require("../trpc/trpc");
+const practitionerAvailabilityMaterialize_1 = require("../lib/practitionerAvailabilityMaterialize");
 function generateDemoNhsNumber(ctx) {
     return tslib_1.__awaiter(this, void 0, void 0, function* () {
         for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -264,6 +265,13 @@ exports.appointmentsRouter = (0, trpc_1.router)({
             throw new server_1.TRPCError({ code: 'NOT_FOUND', message: 'Slot not found' });
         if (slot.appointment)
             throw new server_1.TRPCError({ code: 'CONFLICT', message: 'Slot already booked' });
+        yield (0, practitionerAvailabilityMaterialize_1.assertIntervalMatchesAvailability)({
+            prisma: ctx.prisma,
+            practitionerId: slot.practitionerId,
+            locationId: slot.locationId,
+            startAt: slot.startAt,
+            endAt: slot.endAt,
+        });
         if (ctx.user.role === prisma_client_1.UserRole.PRACTITIONER && ctx.user.practitionerId !== slot.practitionerId) {
             throw new server_1.TRPCError({ code: 'FORBIDDEN', message: 'This slot is for a different practitioner' });
         }
@@ -339,6 +347,13 @@ exports.appointmentsRouter = (0, trpc_1.router)({
         if (existingSlot === null || existingSlot === void 0 ? void 0 : existingSlot.appointment) {
             throw new server_1.TRPCError({ code: 'CONFLICT', message: 'This appointment time is no longer available' });
         }
+        yield (0, practitionerAvailabilityMaterialize_1.assertIntervalMatchesAvailability)({
+            prisma: ctx.prisma,
+            practitionerId: input.practitionerId,
+            locationId: input.locationId,
+            startAt: input.startAt,
+            endAt: input.endAt,
+        });
         const slot = existingSlot !== null && existingSlot !== void 0 ? existingSlot : (yield ctx.prisma.slot.create({
             data: {
                 practitionerId: input.practitionerId,

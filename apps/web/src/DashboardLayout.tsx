@@ -14,7 +14,7 @@ export const DashboardLayout = () => {
   const showRightSidebar = !isDataInsightsRoute;
 
   return (
-    <div className="min-h-screen w-full px-4 pb-8 pt-[80px] lg:px-6">
+    <div className="min-h-screen w-full px-4 pb-8 pt-[100px] lg:px-6">
       <div className="mx-auto flex h-full w-full min-w-0 max-w-full min-[1601px]:max-w-[1440px] flex-col gap-4 lg:gap-6">
         <section
           className={`grid h-full min-h-0 w-full gap-4 ${

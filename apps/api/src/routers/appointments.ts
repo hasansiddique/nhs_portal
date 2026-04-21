@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { UserRole, type AppointmentStatus } from '../generated/prisma-client';
 import { router, protectedProcedure, staffProcedure } from '../trpc/trpc';
 import type { Context } from '../trpc/context';
+import { assertIntervalMatchesAvailability } from '../lib/practitionerAvailabilityMaterialize';
 
 async function generateDemoNhsNumber(ctx: { prisma: Context['prisma'] }) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -292,6 +293,14 @@ export const appointmentsRouter = router({
       if (!slot) throw new TRPCError({ code: 'NOT_FOUND', message: 'Slot not found' });
       if (slot.appointment) throw new TRPCError({ code: 'CONFLICT', message: 'Slot already booked' });
 
+      await assertIntervalMatchesAvailability({
+        prisma: ctx.prisma,
+        practitionerId: slot.practitionerId,
+        locationId: slot.locationId,
+        startAt: slot.startAt,
+        endAt: slot.endAt,
+      });
+
       if (ctx.user!.role === UserRole.PRACTITIONER && ctx.user!.practitionerId !== slot.practitionerId) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'This slot is for a different practitioner' });
       }
@@ -379,6 +388,14 @@ export const appointmentsRouter = router({
       if (existingSlot?.appointment) {
         throw new TRPCError({ code: 'CONFLICT', message: 'This appointment time is no longer available' });
       }
+
+      await assertIntervalMatchesAvailability({
+        prisma: ctx.prisma,
+        practitionerId: input.practitionerId,
+        locationId: input.locationId,
+        startAt: input.startAt,
+        endAt: input.endAt,
+      });
 
       const slot =
         existingSlot ??

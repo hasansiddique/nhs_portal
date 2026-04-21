@@ -5,6 +5,7 @@ import { practitionersRouter } from './practitioners';
 import { locationsRouter } from './locations';
 import { slotsRouter } from './slots';
 import { appointmentsRouter } from './appointments';
+import { availabilityRouter } from './availability';
 
 export const appRouter = router({
   auth: authRouter,
@@ -12,6 +13,7 @@ export const appRouter = router({
   practitioners: practitionersRouter,
   locations: locationsRouter,
   slots: slotsRouter,
+  availability: availabilityRouter,
   appointments: appointmentsRouter,
 });
 
