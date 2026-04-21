@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pnpm install",
+  "buildCommand": "pnpm run vercel-build",
+  "outputDirectory": "public/apps/web",
+  "framework": null,
+  "functions": {
+    "api/[...slug].ts": {
+      "memory": 1024,
+      "maxDuration": 60,
+      "includeFiles": ["dist/apps/api/**"]
+    }
+  },
+  "rewrites": [{ "source": "/((?!api|assets).*)", "destination": "/index.html" }],
+  "crons": [
+    {
+      "path": "/api/cron/appointment-status",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

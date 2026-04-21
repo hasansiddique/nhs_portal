@@ -9,7 +9,7 @@
       "dependsOn": ["prisma-generate"],
       "executor": "nx:run-commands",
       "options": {
-        "command": "tsc --project apps/api/tsconfig.app.json"
+        "command": "tsc --project apps/api/tsconfig.app.json && node -e \"const fs=require('fs');const d='dist/apps/api/generated';try{fs.rmSync(d,{recursive:true})}catch(e){};fs.cpSync('apps/api/src/generated',d,{recursive:true});\""
       },
       "outputs": ["{workspaceRoot}/dist/apps/api"]
     },

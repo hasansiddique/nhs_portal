@@ -6,7 +6,7 @@ generator client {
   // Outside node_modules/.pnpm so Windows can replace query_engine-*.dll without EPERM on rename
   // (common when the repo lives on Desktop / OneDrive or AV locks nested paths).
   output        = "../src/generated/prisma-client"
-  binaryTargets = ["native"]
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

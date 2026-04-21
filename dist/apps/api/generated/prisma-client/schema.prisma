@@ -1,0 +1,163 @@
+// NHS Appointment Management System - Prisma Schema
+// PostgreSQL
+
+generator client {
+  provider      = "prisma-client-js"
+  // Outside node_modules/.pnpm so Windows can replace query_engine-*.dll without EPERM on rename
+  // (common when the repo lives on Desktop / OneDrive or AV locks nested paths).
+  output        = "../src/generated/prisma-client"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Auth / Users (staff and patients use same User model; role distinguishes)
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String    @map("password_hash")
+  name                String?
+  role                UserRole  @default(PATIENT)
+  nhsNumber           String?   @unique @map("nhs_number") // For patients
+  dateOfBirth         DateTime? @map("date_of_birth")
+  phone               String?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  resetToken          String?   @map("reset_token")
+  resetTokenExpiresAt DateTime? @map("reset_token_expires_at")
+
+  patient      Patient?
+  practitioner Practitioner?
+}
+
+enum UserRole {
+  PATIENT
+  PRACTITIONER
+  ADMIN
+}
+
+// --- Patient (links to User for login; holds NHS-specific demographics)
+model Patient {
+  id            String   @id @default(cuid())
+  userId        String   @unique @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nhsNumber     String   @unique @map("nhs_number")
+  dateOfBirth   DateTime @map("date_of_birth")
+  addressLine1  String?  @map("address_line1")
+  addressLine2  String?  @map("address_line2")
+  postcode      String?
+  gpSurgeryName String?  @map("gp_surgery_name")
+  gpSurgeryCode String?  @map("gp_surgery_code")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  appointments Appointment[]
+  locationId   String?       @map("location_id")
+  location     Location?     @relation(fields: [locationId], references: [id])
+}
+
+// --- Practitioner (GP, nurse, etc.)
+model Practitioner {
+  id         String   @id @default(cuid())
+  userId     String   @unique @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String? // Dr, Nurse, etc.
+  gmcNumber  String?  @unique @map("gmc_number")
+  speciality String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  slots                 Slot[]
+  appointments          Appointment[]
+  availabilityWindows   PractitionerAvailabilityWindow[]
+  practitionerLocations PractitionerLocation[]
+}
+
+// --- Location (surgery / clinic)
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  postcode  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  slots                 Slot[]
+  patients              Patient[]
+  availabilityWindows   PractitionerAvailabilityWindow[]
+  practitionerLocations PractitionerLocation[]
+}
+
+/// Practitioners who work at a given clinic (for directory / filtering).
+model PractitionerLocation {
+  id             String       @id @default(cuid())
+  practitionerId String       @map("practitioner_id")
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  locationId     String       @map("location_id")
+  location       Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@unique([practitionerId, locationId])
+  @@index([locationId])
+}
+
+/// Weekly recurring availability template for a practitioner at a location.
+/// `dayOfWeek`: 1 = Monday … 7 = Sunday (ISO-style).
+/// `windowStartMin` / `windowEndMin`: minutes from midnight (e.g. 9:00 → 540).
+model PractitionerAvailabilityWindow {
+  id              String       @id @default(cuid())
+  practitionerId  String       @map("practitioner_id")
+  practitioner    Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  locationId      String       @map("location_id")
+  location        Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  dayOfWeek       Int          @map("day_of_week")
+  windowStartMin  Int          @map("window_start_min")
+  windowEndMin    Int          @map("window_end_min")
+  slotDurationMin Int          @default(30) @map("slot_duration_min")
+
+  @@index([practitionerId, locationId])
+}
+
+// --- Slot (available time window for a practitioner at a location)
+model Slot {
+  id             String       @id @default(cuid())
+  practitionerId String       @map("practitioner_id")
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  locationId     String       @map("location_id")
+  location       Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  startAt        DateTime     @map("start_at")
+  endAt          DateTime     @map("end_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  appointment Appointment?
+
+  @@unique([practitionerId, locationId, startAt, endAt], map: "Slot_practitioner_location_start_end_key")
+}
+
+// --- Appointment (booked slot by a patient)
+model Appointment {
+  id        String            @id @default(cuid())
+  patientId String            @map("patient_id")
+  patient   Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  slotId    String            @unique @map("slot_id")
+  slot      Slot              @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  status    AppointmentStatus @default(SCHEDULED)
+  reason    String? // Reason for visit
+  notes     String? // Clinician notes (after appointment)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  practitionerId String       @map("practitioner_id")
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
