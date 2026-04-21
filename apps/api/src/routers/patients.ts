@@ -9,7 +9,7 @@ export const patientsRouter = router({
   list: protectedProcedure
     .input(
       z.object({
-        cursor: z.string().optional(),
+        cursor: z.string().nullable().optional(),
         limit: z.number().min(1).max(500).default(50),
         locationId: z.string().optional(),
         locationIds: z.array(z.string()).optional(),
@@ -51,7 +51,7 @@ export const patientsRouter = router({
 
       const items = await ctx.prisma.patient.findMany({
         take: input.limit + 1,
-        cursor: input.cursor ? { id: input.cursor } : undefined,
+        cursor: input.cursor != null && input.cursor !== '' ? { id: input.cursor } : undefined,
         where,
         include: {
           user: { select: { id: true, email: true, name: true, phone: true } },

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { trpc } from '@nhs-portal/client-api';
-import { useLocationStore } from '@your-props/client/utils';
+import { activeLocationIdsForApi, useLocationStore } from '@your-props/client/utils';
 
 type SessionUser = {
   role?: string;
@@ -79,8 +79,22 @@ export default function DashboardAvailability() {
 
   const storeLocations = useLocationStore((s) => s.locations);
   const setLocations = useLocationStore((s) => s.setLocations);
+  const selectedLocationIds = useLocationStore((s) => s.selectedLocationIds);
 
   const locationsQuery = trpc.locations.list.useQuery();
+
+  const locationsSorted = useMemo(
+    () => [...(locationsQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [locationsQuery.data]
+  );
+  const allLocationIds = useMemo(
+    () => (storeLocations.length > 0 ? storeLocations : locationsSorted).map((l) => l.id),
+    [storeLocations, locationsSorted]
+  );
+  const activeLocationIds = useMemo(
+    () => activeLocationIdsForApi(selectedLocationIds, allLocationIds),
+    [selectedLocationIds, allLocationIds]
+  );
 
   useEffect(() => {
     if (locationsQuery.data && locationsQuery.data.length > 0 && storeLocations.length === 0) {
@@ -103,10 +117,18 @@ export default function DashboardAvailability() {
   const upsertPractitionerId = isAdmin ? adminFormPractitionerId : selfPractitionerId ?? '';
 
   const utils = trpc.useUtils();
-  const listQuery = trpc.availability.list.useQuery(
-    isAdmin ? { search: doctorSearch.trim() || undefined } : {},
-    { enabled: isAdmin || Boolean(selfPractitionerId) }
+
+  const listQueryInput = useMemo(
+    () => ({
+      ...(isAdmin ? { search: doctorSearch.trim() || undefined } : {}),
+      ...(activeLocationIds?.length ? { locationIds: activeLocationIds } : {}),
+    }),
+    [isAdmin, doctorSearch, activeLocationIds]
   );
+
+  const listQuery = trpc.availability.list.useQuery(listQueryInput, {
+    enabled: isAdmin || Boolean(selfPractitionerId),
+  });
 
   const upsert = trpc.availability.upsert.useMutation({
     onError: (e) => toast.error(e.message),
@@ -309,7 +331,8 @@ export default function DashboardAvailability() {
       <h1 className="mt-1 text-xl font-bold text-white">Clinician availability</h1>
       <p className="mt-1 text-sm" style={{ color: 'var(--primary-color4)' }}>
         Weekly templates generate bookable appointment slots for the next 90 days. Patients can only book times that
-        match these rules.
+        match these rules. The table below follows the header or sidebar location filter; show all clinics when no
+        specific locations are selected.
       </p>
 
       {!isAdmin ? (
@@ -585,23 +608,25 @@ export default function DashboardAvailability() {
                       </td>
                       <td className="px-3 py-2">{r.slotDurationMin}m</td>
                       <td className="px-3 py-2 text-right">
-                        {showRowEditButton ? (
+                        <div className="inline-flex items-center justify-end gap-2 whitespace-nowrap">
+                          {showRowEditButton ? (
+                            <button
+                              type="button"
+                              className="rounded-lg border border-white/15 px-2 py-1 text-xs text-white/80 hover:bg-white/5"
+                              onClick={() => openEditForm(r)}
+                            >
+                              Edit
+                            </button>
+                          ) : null}
                           <button
                             type="button"
-                            className="mr-2 rounded-lg border border-white/15 px-2 py-1 text-xs text-white/80 hover:bg-white/5"
-                            onClick={() => openEditForm(r)}
+                            className="rounded-lg border border-red-400/30 px-2 py-1 text-xs text-red-200 hover:bg-red-500/10 disabled:opacity-50"
+                            disabled={remove.isPending}
+                            onClick={() => remove.mutate({ id: r.id })}
                           >
-                            Edit
+                            Delete
                           </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="rounded-lg border border-red-400/30 px-2 py-1 text-xs text-red-200 hover:bg-red-500/10 disabled:opacity-50"
-                          disabled={remove.isPending}
-                          onClick={() => remove.mutate({ id: r.id })}
-                        >
-                          Delete
-                        </button>
+                        </div>
                       </td>
                     </tr>
                   );

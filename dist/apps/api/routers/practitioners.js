@@ -11,7 +11,7 @@ const SALT_ROUNDS = 10;
 exports.practitionersRouter = (0, trpc_1.router)({
     list: trpc_1.protectedProcedure
         .input(zod_1.z.object({
-        cursor: zod_1.z.string().optional(),
+        cursor: zod_1.z.string().nullable().optional(),
         limit: zod_1.z.number().min(1).max(500).default(50),
         locationId: zod_1.z.string().optional(),
         locationIds: zod_1.z.array(zod_1.z.string()).optional(),
@@ -81,7 +81,7 @@ exports.practitionersRouter = (0, trpc_1.router)({
                 : {};
         const items = yield ctx.prisma.practitioner.findMany({
             take: input.limit + 1,
-            cursor: input.cursor ? { id: input.cursor } : undefined,
+            cursor: input.cursor != null && input.cursor !== '' ? { id: input.cursor } : undefined,
             where,
             include: {
                 user: { select: { id: true, email: true, name: true } },

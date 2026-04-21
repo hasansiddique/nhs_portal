@@ -1,16 +1,19 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ChevronRight } from 'lucide-react';
 import type { inferRouterOutputs } from '@trpc/server';
 import { trpc, type AppRouter } from '@nhs-portal/client-api';
 import { activeLocationIdsForApi, useLocationStore } from '@your-props/client/utils';
+import { useFetchNextPageNearScrollEnd } from '../../hooks/useFetchNextPageNearScrollEnd';
 
 const ACCENT_ORANGE = '#ef6b3b';
+const PAGE_SIZE = 20;
 
 type PatientRow = inferRouterOutputs<AppRouter>['patients']['list']['items'][number];
 
 export default function DashboardPatients() {
+  const scrollRootRef = useRef<HTMLDivElement>(null);
   const locations = useLocationStore((s) => s.locations);
   const selectedLocationIds = useLocationStore((s) => s.selectedLocationIds);
   const allLocationIds = useMemo(() => locations.map((l) => l.id), [locations]);
@@ -19,12 +22,32 @@ export default function DashboardPatients() {
     [selectedLocationIds, allLocationIds]
   );
 
-  const { data, isLoading } = trpc.patients.list.useQuery({
-    limit: 250,
-    ...(activeIds?.length ? { locationIds: activeIds } : {}),
+  const listInput = useMemo(
+    () => ({
+      limit: PAGE_SIZE,
+      ...(activeIds?.length ? { locationIds: activeIds } : {}),
+    }),
+    [activeIds]
+  );
+
+  const {
+    data,
+    isPending,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = trpc.patients.list.useInfiniteQuery(listInput, {
+    getNextPageParam: (last) => last.nextCursor,
   });
 
-  const items = data?.items ?? [];
+  const items = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data?.pages]);
+
+  useFetchNextPageNearScrollEnd({
+    scrollRootRef,
+    hasNextPage: Boolean(hasNextPage),
+    isFetchingNextPage,
+    fetchNextPage,
+  });
 
   const sections = useMemo(() => {
     if (!items.length) return [] as { locationId: string; locationName: string; rows: PatientRow[] }[];
@@ -59,7 +82,7 @@ export default function DashboardPatients() {
     }));
   }, [items, activeIds, locations]);
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="px-5 py-8" style={{ color: 'var(--primary-color4)' }}>
         Loading…
@@ -68,7 +91,10 @@ export default function DashboardPatients() {
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-auto px-5 py-6 lg:px-8 lg:py-8">
+    <div
+      ref={scrollRootRef}
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-auto px-5 py-6 lg:px-8 lg:py-8"
+    >
       <div className="mb-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--primary-color4)' }}>
           Directory
@@ -132,6 +158,12 @@ export default function DashboardPatients() {
           ))}
         </div>
       )}
+
+      {isFetchingNextPage ? (
+        <p className="py-6 text-center text-sm" style={{ color: 'var(--primary-color4)' }}>
+          Loading more…
+        </p>
+      ) : null}
     </div>
   );
 }

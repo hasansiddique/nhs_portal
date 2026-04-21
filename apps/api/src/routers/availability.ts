@@ -96,6 +96,8 @@ export const availabilityRouter = router({
         /** When set (admin only), restrict to one clinician; omit to list everyone. */
         practitionerId: z.string().optional(),
         locationId: z.string().optional(),
+        /** When set, only windows at these clinics (UI location filter). */
+        locationIds: z.array(z.string()).optional(),
         /** Admin only: case-insensitive match on clinician name or email. */
         search: z.string().optional(),
       })
@@ -103,12 +105,19 @@ export const availabilityRouter = router({
     .query(async ({ ctx, input }) => {
       const user = ctx.user!;
 
+      const locationWhere =
+        input.locationIds && input.locationIds.length > 0
+          ? { locationId: { in: input.locationIds } }
+          : input.locationId
+            ? { locationId: input.locationId }
+            : {};
+
       if (user.role === UserRole.PRACTITIONER) {
         const practitionerId = resolveTargetPractitionerId(user, input.practitionerId);
         return ctx.prisma.practitionerAvailabilityWindow.findMany({
           where: {
             practitionerId,
-            ...(input.locationId ? { locationId: input.locationId } : {}),
+            ...locationWhere,
           },
           include: {
             location: { select: { id: true, name: true } },
@@ -120,17 +129,9 @@ export const availabilityRouter = router({
 
       if (user.role === UserRole.ADMIN) {
         const q = input.search?.trim();
-        const where: {
-          practitionerId?: string;
-          locationId?: string;
-          practitioner?: {
-            user: {
-              OR: Array<{ name?: { contains: string; mode: 'insensitive' }; email?: { contains: string; mode: 'insensitive' } }>;
-            };
-          };
-        } = {
+        const where = {
           ...(input.practitionerId ? { practitionerId: input.practitionerId } : {}),
-          ...(input.locationId ? { locationId: input.locationId } : {}),
+          ...locationWhere,
           ...(q
             ? {
                 practitioner: {

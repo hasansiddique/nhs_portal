@@ -80,16 +80,23 @@ exports.availabilityRouter = (0, trpc_1.router)({
         /** When set (admin only), restrict to one clinician; omit to list everyone. */
         practitionerId: zod_1.z.string().optional(),
         locationId: zod_1.z.string().optional(),
+        /** When set, only windows at these clinics (UI location filter). */
+        locationIds: zod_1.z.array(zod_1.z.string()).optional(),
         /** Admin only: case-insensitive match on clinician name or email. */
         search: zod_1.z.string().optional(),
     }))
         .query((_a) => tslib_1.__awaiter(void 0, [_a], void 0, function* ({ ctx, input }) {
         var _b;
         const user = ctx.user;
+        const locationWhere = input.locationIds && input.locationIds.length > 0
+            ? { locationId: { in: input.locationIds } }
+            : input.locationId
+                ? { locationId: input.locationId }
+                : {};
         if (user.role === prisma_client_1.UserRole.PRACTITIONER) {
             const practitionerId = resolveTargetPractitionerId(user, input.practitionerId);
             return ctx.prisma.practitionerAvailabilityWindow.findMany({
-                where: Object.assign({ practitionerId }, (input.locationId ? { locationId: input.locationId } : {})),
+                where: Object.assign({ practitionerId }, locationWhere),
                 include: {
                     location: { select: { id: true, name: true } },
                     practitioner: { include: { user: { select: { id: true, name: true, email: true } } } },
@@ -99,7 +106,7 @@ exports.availabilityRouter = (0, trpc_1.router)({
         }
         if (user.role === prisma_client_1.UserRole.ADMIN) {
             const q = (_b = input.search) === null || _b === void 0 ? void 0 : _b.trim();
-            const where = Object.assign(Object.assign(Object.assign({}, (input.practitionerId ? { practitionerId: input.practitionerId } : {})), (input.locationId ? { locationId: input.locationId } : {})), (q
+            const where = Object.assign(Object.assign(Object.assign({}, (input.practitionerId ? { practitionerId: input.practitionerId } : {})), locationWhere), (q
                 ? {
                     practitioner: {
                         user: {
